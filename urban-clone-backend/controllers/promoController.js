@@ -71,5 +71,86 @@ const validatePromoCode = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+// ==========================================
+// 🌟 NEW ADMIN CONTROLLERS 🌟
+// ==========================================
 
-module.exports = { validatePromoCode };
+// @desc    Get all Promo Codes
+// @route   GET /api/promo/admin/all
+const getAllPromos = async (req, res) => {
+  try {
+    const promos = await PromoCode.find({}).sort({ createdAt: -1 });
+    res.json(promos);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Create a new Promo Code
+// @route   POST /api/promo/admin/create
+const createPromo = async (req, res) => {
+  try {
+    const {
+      code,
+      discountType,
+      discountValue,
+      maxDiscountAmount,
+      minOrderValue,
+      expiryDate,
+    } = req.body;
+
+    const promoExists = await PromoCode.findOne({ code: code.toUpperCase() });
+    if (promoExists)
+      return res.status(400).json({ message: "Promo code already exists" });
+
+    const promo = await PromoCode.create({
+      code: code.toUpperCase(),
+      discountType,
+      discountValue: Number(discountValue),
+      maxDiscountAmount: maxDiscountAmount ? Number(maxDiscountAmount) : null,
+      minOrderValue: minOrderValue ? Number(minOrderValue) : 0,
+      expiryDate: new Date(expiryDate),
+    });
+
+    res.status(201).json(promo);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Toggle Active/Inactive status
+// @route   PUT /api/promo/admin/:id/toggle
+const togglePromoStatus = async (req, res) => {
+  try {
+    const promo = await PromoCode.findById(req.params.id);
+    if (!promo) return res.status(404).json({ message: "Promo not found" });
+
+    promo.isActive = !promo.isActive;
+    await promo.save();
+    res.json(promo);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Delete a Promo Code
+// @route   DELETE /api/promo/admin/:id
+const deletePromo = async (req, res) => {
+  try {
+    const promo = await PromoCode.findById(req.params.id);
+    if (!promo) return res.status(404).json({ message: "Promo not found" });
+
+    await promo.deleteOne();
+    res.json({ message: "Promo code deleted permanently" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = {
+  validatePromoCode,
+  getAllPromos,
+  createPromo,
+  togglePromoStatus,
+  deletePromo,
+};

@@ -14,7 +14,6 @@ import {
   Tabs,
   Tab,
   ListGroup,
-  Modal,
 } from "react-bootstrap";
 import axios from "axios";
 import { toast } from "react-hot-toast";
@@ -22,18 +21,20 @@ import {
   FiCheckCircle,
   FiClock,
   FiDollarSign,
+  FiUsers,
+  FiActivity,
+  FiShield,
+  FiCreditCard,
+  FiSmartphone,
   FiMessageSquare,
   FiSend,
   FiCheck,
-  FiShield,
-  FiTag,
-  FiTrash2,
-  FiPlus,
 } from "react-icons/fi";
 import AuthContext from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import ChatBox from "../components/UI/ChatBox";
-import io from "socket.io-client";
+import io from "socket.io-client"; // For Admin Support Socket
+
 import {
   AreaChart,
   Area,
@@ -59,31 +60,18 @@ const AdminDashboard = () => {
   });
   const [loading, setLoading] = useState(true);
 
-  // --- SUPPORT CRM STATE ---
+  // --- NEW: SUPPORT CRM STATE ---
   const [supportTickets, setSupportTickets] = useState([]);
   const [activeTicket, setActiveTicket] = useState(null);
   const [supportMessages, setSupportMessages] = useState([]);
   const [supportInput, setSupportInput] = useState("");
   const chatScrollRef = useRef(null);
 
-  // --- CHAT STATE ---
+  // --- CHAT STATE (Provider-Customer Intercept) ---
   const [showChat, setShowChat] = useState(false);
   const [chatBooking, setChatBooking] = useState(null);
-
-  // --- 🌟 PAYOUTS STATE (From Step 1) ---
+  // --- NEW: PAYOUTS STATE ---
   const [payouts, setPayouts] = useState([]);
-
-  // --- 🌟 PROMO CRM STATE (From Step 2) ---
-  const [promos, setPromos] = useState([]);
-  const [showPromoModal, setShowPromoModal] = useState(false);
-  const [promoForm, setPromoForm] = useState({
-    code: "",
-    discountType: "percentage",
-    discountValue: "",
-    maxDiscountAmount: "",
-    minOrderValue: "",
-    expiryDate: "",
-  });
 
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -96,46 +84,7 @@ const AdminDashboard = () => {
     "#8b5cf6",
     "#3b82f6",
   ];
-
-  useEffect(() => {
-    if (user && user.role !== "admin") {
-      navigate("/");
-      return;
-    }
-    fetchData();
-    fetchSupportTickets();
-    fetchPayouts();
-    fetchPromos();
-
-    const interval = setInterval(() => {
-      fetchData(true);
-      fetchSupportTickets(true);
-      fetchPayouts(true);
-    }, 10000);
-    return () => clearInterval(interval);
-  }, [user, navigate]);
-
-  // --- FETCH CORE DATA ---
-  const fetchData = async (silent = false) => {
-    if (!user || !user.token) return;
-    try {
-      if (!silent) setLoading(true);
-      const config = { headers: { Authorization: `Bearer ${user.token}` } };
-      const [bookRes, userRes, analyticsRes] = await Promise.all([
-        axios.get("/api/bookings/admin/all", config),
-        axios.get("/api/auth/admin/users", config),
-        axios.get("/api/bookings/admin/analytics", config),
-      ]);
-      setBookings(bookRes.data);
-      setUsersList(userRes.data);
-      setAnalytics(analyticsRes.data);
-      if (!silent) setLoading(false);
-    } catch (error) {
-      setLoading(false);
-    }
-  };
-
-  // --- 🌟 FETCH PAYOUTS (Step 1) ---
+  // Fetch Payouts
   const fetchPayouts = async (silent = false) => {
     try {
       const config = { headers: { Authorization: `Bearer ${user.token}` } };
@@ -146,8 +95,13 @@ const AdminDashboard = () => {
     }
   };
 
+  // Process Payout
   const handleProcessPayout = async (id) => {
-    if (!window.confirm("Are you sure you transferred the money via UPI?"))
+    if (
+      !window.confirm(
+        "Are you sure you have transferred the money to the provider's UPI?",
+      )
+    )
       return;
     try {
       const config = { headers: { Authorization: `Bearer ${user.token}` } };
@@ -159,62 +113,47 @@ const AdminDashboard = () => {
     }
   };
 
-  // --- 🌟 PROMO CRM FUNCTIONS (Step 2) ---
-  const fetchPromos = async () => {
+  useEffect(() => {
+    if (user && user.role !== "admin") {
+      navigate("/");
+      return;
+    }
+    fetchData();
+    fetchSupportTickets();
+    fetchPayouts(); // <-- ADD THIS
+
+    const interval = setInterval(() => {
+      fetchData(true);
+      fetchSupportTickets(true);
+      fetchPayouts(true); // <-- ADD THIS
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [user, navigate]);
+
+  // --- 1. CORE DATA FETCHING ---
+  const fetchData = async (silent = false) => {
+    if (!user || !user.token) return;
     try {
+      if (!silent) setLoading(true);
       const config = { headers: { Authorization: `Bearer ${user.token}` } };
-      const { data } = await axios.get("/api/promo/admin/all", config);
-      setPromos(data);
+
+      const [bookRes, userRes, analyticsRes] = await Promise.all([
+        axios.get("/api/bookings/admin/all", config),
+        axios.get("/api/auth/admin/users", config),
+        axios.get("/api/bookings/admin/analytics", config),
+      ]);
+
+      setBookings(bookRes.data);
+      setUsersList(userRes.data);
+      setAnalytics(analyticsRes.data);
+
+      if (!silent) setLoading(false);
     } catch (error) {
-      console.error("Failed to fetch promos");
+      setLoading(false);
     }
   };
 
-  const handleCreatePromo = async (e) => {
-    e.preventDefault();
-    try {
-      const config = { headers: { Authorization: `Bearer ${user.token}` } };
-      await axios.post("/api/promo/admin/create", promoForm, config);
-      toast.success("Promo Code Created!");
-      setShowPromoModal(false);
-      setPromoForm({
-        code: "",
-        discountType: "percentage",
-        discountValue: "",
-        maxDiscountAmount: "",
-        minOrderValue: "",
-        expiryDate: "",
-      });
-      fetchPromos();
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to create promo");
-    }
-  };
-
-  const handleTogglePromo = async (id) => {
-    try {
-      const config = { headers: { Authorization: `Bearer ${user.token}` } };
-      await axios.put(`/api/promo/admin/${id}/toggle`, {}, config);
-      toast.success("Promo status updated");
-      fetchPromos();
-    } catch (error) {
-      toast.error("Failed to toggle status");
-    }
-  };
-
-  const handleDeletePromo = async (id) => {
-    if (!window.confirm("Delete this promo code permanently?")) return;
-    try {
-      const config = { headers: { Authorization: `Bearer ${user.token}` } };
-      await axios.delete(`/api/promo/admin/${id}`, config);
-      toast.success("Promo deleted");
-      fetchPromos();
-    } catch (error) {
-      toast.error("Failed to delete promo");
-    }
-  };
-
-  // --- SUPPORT TICKET LOGIC ---
+  // --- 2. SUPPORT TICKET LOGIC ---
   const fetchSupportTickets = async (silent = false) => {
     try {
       const config = { headers: { Authorization: `Bearer ${user.token}` } };
@@ -234,12 +173,15 @@ const AdminDashboard = () => {
         config,
       );
       setSupportMessages(data);
+
+      // Join Socket Room
       socket.emit("join_support_ticket", ticket._id);
     } catch (error) {
       toast.error("Failed to load chat");
     }
   };
 
+  // Socket Listener for Admin Support Chat
   useEffect(() => {
     const supportMsgHandler = (newMsg) => {
       if (activeTicket && newMsg.ticketId === activeTicket._id) {
@@ -257,12 +199,14 @@ const AdminDashboard = () => {
   const handleSendSupportMessage = (e) => {
     e.preventDefault();
     if (!supportInput.trim() || !activeTicket) return;
+
     const newMsg = {
       ticketId: activeTicket._id,
       senderId: user._id,
       text: supportInput,
-      isAdmin: true,
+      isAdmin: true, // Mark as Admin
     };
+
     socket.emit("send_support_message", newMsg);
     setSupportInput("");
   };
@@ -277,13 +221,13 @@ const AdminDashboard = () => {
       );
       toast.success("Ticket Resolved");
       setActiveTicket(null);
-      fetchSupportTickets();
+      fetchSupportTickets(); // Refresh list
     } catch (error) {
       toast.error("Failed to resolve");
     }
   };
 
-  // --- EXISTING ACTION HANDLERS ---
+  // --- 3. EXISTING LOGIC (Status, Verification) ---
   const handleStatusUpdate = async (id, newStatus) => {
     try {
       const config = { headers: { Authorization: `Bearer ${user.token}` } };
@@ -327,6 +271,7 @@ const AdminDashboard = () => {
   const customers = usersList.filter((u) => u.role === "customer");
   const providers = usersList.filter((u) => u.role === "provider");
   const adminData = usersList.find((u) => u.role === "admin");
+
   const realizedRevenue = bookings
     .filter((b) => b.status === "completed")
     .reduce(
@@ -366,7 +311,7 @@ const AdminDashboard = () => {
         </div>
 
         <Tabs defaultActiveKey="support" className="mb-4 border-0 custom-tabs">
-          {/* TAB 1: SUPPORT CRM */}
+          {/* ================= TAB 1: LIVE SUPPORT CRM (NEW) ================= */}
           <Tab
             eventKey="support"
             title={
@@ -384,6 +329,7 @@ const AdminDashboard = () => {
               className="g-0 bg-white shadow-sm border rounded-4 overflow-hidden mt-3"
               style={{ height: "600px" }}
             >
+              {/* LEFT PANE: TICKET LIST */}
               <Col
                 md={4}
                 className="border-end h-100 bg-light d-flex flex-column"
@@ -446,9 +392,12 @@ const AdminDashboard = () => {
                   )}
                 </div>
               </Col>
+
+              {/* RIGHT PANE: CHAT WINDOW */}
               <Col md={8} className="h-100 d-flex flex-column bg-white">
                 {activeTicket ? (
                   <>
+                    {/* CHAT HEADER */}
                     <div className="p-3 border-bottom d-flex justify-content-between align-items-center">
                       <div>
                         <h6 className="fw-bold mb-0 text-dark">
@@ -467,6 +416,8 @@ const AdminDashboard = () => {
                         <FiCheck className="me-1" /> Mark Resolved
                       </Button>
                     </div>
+
+                    {/* CHAT MESSAGES */}
                     <div
                       className="flex-grow-1 p-4 overflow-auto"
                       style={{ backgroundColor: "#f8fafc" }}
@@ -502,6 +453,8 @@ const AdminDashboard = () => {
                       })}
                       <div ref={chatScrollRef} />
                     </div>
+
+                    {/* CHAT INPUT */}
                     <div className="p-3 border-top bg-white">
                       <Form
                         onSubmit={handleSendSupportMessage}
@@ -540,8 +493,9 @@ const AdminDashboard = () => {
             </Row>
           </Tab>
 
-          {/* TAB 2: ANALYTICS */}
+          {/* ================= TAB 2: ANALYTICS ================= */}
           <Tab eventKey="analytics" title="Analytics 📊">
+            {/* ... Keep exactly the same Analytics code as your previous file ... */}
             <Row className="g-4 mb-4 mt-2">
               <Col lg={8}>
                 <Card className="border-0 shadow-sm rounded-4 p-4 h-100">
@@ -670,6 +624,7 @@ const AdminDashboard = () => {
               </Col>
             </Row>
 
+            {/* Quick Stats */}
             <Row className="g-3">
               <Col md={3}>
                 <Card className="border-0 shadow-sm p-3 rounded-4 h-100 bg-dark text-white">
@@ -710,8 +665,9 @@ const AdminDashboard = () => {
             </Row>
           </Tab>
 
-          {/* TAB 3: LIVE FEED */}
+          {/* ================= TAB 3: LIVE FEED ================= */}
           <Tab eventKey="overview" title="Live Feed">
+            {/* ... Keep exactly the same Live Feed Table code ... */}
             <Card className="border-0 shadow-sm rounded-4 overflow-hidden mt-3">
               <Card.Header className="bg-white py-3 border-bottom">
                 <h5 className="mb-0 fw-bold">Live Bookings Feed</h5>
@@ -772,6 +728,8 @@ const AdminDashboard = () => {
                           }
                           style={{ fontSize: "9px" }}
                         >
+                          {/* {booking.paymentMethod.toUpperCase()} -{" "}
+                          {booking.paymentStatus.toUpperCase()} */}
                           {booking.paymentMethod?.toUpperCase() || "CASH"} -{" "}
                           {booking.paymentStatus?.toUpperCase() || "PENDING"}
                         </Badge>
@@ -793,9 +751,9 @@ const AdminDashboard = () => {
                           <Button
                             variant="light"
                             size="sm"
-                            className="border rounded-circle p-2"
+                            className="border rounded-circle p-2 d-flex align-items-center justify-content-center"
                             onClick={() => handleOpenChat(booking)}
-                            title="Chat"
+                            title="Chat with Customer"
                           >
                             <FiMessageSquare size={16} />
                           </Button>
@@ -821,8 +779,81 @@ const AdminDashboard = () => {
             </Card>
           </Tab>
 
-          {/* TAB 4: PROVIDERS */}
-          <Tab eventKey="providers" title={`Partners (${providers.length})`}>
+          {/* ================= TAB 4: PROVIDERS BEFORE RATING ================= */}
+          {/* <Tab eventKey="providers" title={`Providers (${providers.length})`}>
+           
+            <Card className="border-0 shadow-sm rounded-4 overflow-hidden mt-3">
+              <Table responsive hover className="mb-0 align-middle">
+                <thead className="bg-light">
+                  <tr>
+                    <th className="ps-4">Partner Name</th>
+                    <th>Category</th>
+                    <th>Contact</th>
+                    <th>Wallet Balance</th>
+                    <th className="text-end pe-4">KYC / Verification</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {providers.map((prov) => (
+                    <tr key={prov._id}>
+                      <td className="ps-4 fw-bold">{prov.name}</td>
+                      <td>
+                        <Badge bg="dark">
+                          {prov.providerDetails?.category}
+                        </Badge>
+                      </td>
+                      <td className="text-muted small">{prov.phone}</td>
+                      <td>
+                        <span
+                          className={`fw-bold ${prov.walletBalance < 0 ? "text-danger" : "text-success"}`}
+                        >
+                          ₹{prov.walletBalance?.toFixed(2) || "0.00"}
+                        </span>
+                      </td>
+                      <td className="text-end pe-4">
+                        {prov.providerDetails?.isVerified ? (
+                          <Badge bg="success">
+                            <FiCheckCircle className="me-1" /> Verified
+                          </Badge>
+                        ) : prov.providerDetails?.verificationStatus ===
+                          "submitted" ? (
+                          <div className="d-flex justify-content-end gap-2">
+                            <Button
+                              variant="success"
+                              size="sm"
+                              onClick={() =>
+                                handleProviderVerification(prov._id, "approve")
+                              }
+                            >
+                              Approve
+                            </Button>
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              onClick={() =>
+                                handleProviderVerification(prov._id, "reject")
+                              }
+                            >
+                              Reject
+                            </Button>
+                          </div>
+                        ) : (
+                          <Badge bg="warning" text="dark">
+                            Pending Upload
+                          </Badge>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </Card>
+          </Tab> */}
+          {/* ================= TAB 4: PROVIDERS DIRECTORY ================= */}
+          <Tab
+            eventKey="providers"
+            title={`Service Partners (${providers.length})`}
+          >
             <Card className="border-0 shadow-sm rounded-4 overflow-hidden mt-3">
               <Table responsive hover className="mb-0 align-middle">
                 <thead className="bg-light">
@@ -832,8 +863,12 @@ const AdminDashboard = () => {
                     </th>
                     <th className="text-muted small fw-bold">CATEGORY</th>
                     <th className="text-muted small fw-bold">CONTACT</th>
-                    <th className="text-muted small fw-bold">WALLET</th>
-                    <th className="text-muted small fw-bold">RATING</th>
+                    <th className="text-muted small fw-bold">WALLET BALANCE</th>
+                    {/* --- NEW: RATING COLUMN --- */}
+                    <th className="text-muted small fw-bold">
+                      RATING (LIFETIME)
+                    </th>
+                    {/* -------------------------- */}
                     <th className="text-end pe-4 text-muted small fw-bold">
                       KYC / VERIFICATION
                     </th>
@@ -841,8 +876,10 @@ const AdminDashboard = () => {
                 </thead>
                 <tbody>
                   {providers.map((prov) => {
+                    // Extract Rating Data safely
                     const rating = prov.providerDetails?.rating || 0;
                     const numReviews = prov.providerDetails?.numReviews || 0;
+
                     return (
                       <tr key={prov._id}>
                         <td className="ps-4 fw-bold text-dark">{prov.name}</td>
@@ -859,13 +896,25 @@ const AdminDashboard = () => {
                             ₹{prov.walletBalance?.toFixed(2) || "0.00"}
                           </span>
                         </td>
+
+                        {/* --- NEW: VISUAL RATING INDICATOR --- */}
                         <td>
                           {numReviews === 0 ? (
-                            <Badge bg="secondary">New</Badge>
+                            <Badge bg="secondary" className="px-2">
+                              New
+                            </Badge>
                           ) : rating >= 4.5 ? (
-                            <Badge bg="success">⭐ {rating.toFixed(1)}</Badge>
+                            <Badge bg="success" className="px-2">
+                              ⭐ {rating.toFixed(1)} (Top Pro)
+                            </Badge>
+                          ) : rating >= 4.0 ? (
+                            <Badge bg="primary" className="px-2">
+                              ⭐ {rating.toFixed(1)}
+                            </Badge>
                           ) : (
-                            <Badge bg="primary">⭐ {rating.toFixed(1)}</Badge>
+                            <Badge bg="danger" className="px-2 animate-pulse">
+                              ⚠️ {rating.toFixed(1)} (Low)
+                            </Badge>
                           )}
                           <br />
                           <small
@@ -875,6 +924,8 @@ const AdminDashboard = () => {
                             {numReviews} reviews
                           </small>
                         </td>
+                        {/* ------------------------------------ */}
+
                         <td className="text-end pe-4">
                           {prov.providerDetails?.isVerified ? (
                             <Badge bg="success" className="px-3 py-2">
@@ -925,8 +976,9 @@ const AdminDashboard = () => {
             </Card>
           </Tab>
 
-          {/* TAB 5: CUSTOMERS */}
+          {/* ================= TAB 5: CUSTOMERS ================= */}
           <Tab eventKey="customers" title={`Customers (${customers.length})`}>
+            {/* ... Keep exactly the same Customers code ... */}
             <Card className="border-0 shadow-sm rounded-4 overflow-hidden mt-3">
               <Table responsive hover className="mb-0 align-middle">
                 <thead className="bg-light">
@@ -958,8 +1010,7 @@ const AdminDashboard = () => {
               </Table>
             </Card>
           </Tab>
-
-          {/* 🌟 TAB 6: PAYOUTS (Step 1) 🌟 */}
+          {/* ================= TAB 6: FINANCIAL PAYOUTS ================= */}
           <Tab
             eventKey="payouts"
             title={
@@ -1052,134 +1103,6 @@ const AdminDashboard = () => {
               </Table>
             </Card>
           </Tab>
-
-          {/* 🌟 TAB 7: MARKETING & PROMOS (Step 2) 🌟 */}
-          <Tab eventKey="marketing" title="Marketing & Promos 🎯">
-            <Card className="border-0 shadow-sm rounded-4 mt-3 bg-white p-4">
-              <div className="d-flex justify-content-between align-items-center mb-4">
-                <div>
-                  <h5 className="fw-bold mb-1">Promo Code Engine</h5>
-                  <p className="text-muted small mb-0">
-                    Create and manage discount codes for customers.
-                  </p>
-                </div>
-                <Button
-                  variant="dark"
-                  className="rounded-pill fw-bold btn-primary-custom d-flex align-items-center shadow-sm"
-                  onClick={() => setShowPromoModal(true)}
-                >
-                  <FiPlus className="me-2" /> Create Promo
-                </Button>
-              </div>
-
-              <Table
-                responsive
-                hover
-                className="mb-0 align-middle border rounded-3 overflow-hidden"
-              >
-                <thead className="bg-light">
-                  <tr>
-                    <th className="ps-4 text-muted small fw-bold">CODE</th>
-                    <th className="text-muted small fw-bold">DISCOUNT</th>
-                    <th className="text-muted small fw-bold">MIN ORDER</th>
-                    <th className="text-muted small fw-bold">STATUS</th>
-                    <th className="text-muted small fw-bold">EXPIRES</th>
-                    <th className="text-end pe-4 text-muted small fw-bold">
-                      ACTIONS
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {promos.length === 0 ? (
-                    <tr>
-                      <td colSpan="6" className="text-center py-5 text-muted">
-                        <FiTag size={40} className="mb-3 opacity-25" />
-                        <h6>No Promo Codes Found</h6>
-                        <small>Create your first code to boost sales!</small>
-                      </td>
-                    </tr>
-                  ) : (
-                    promos.map((promo) => {
-                      const isExpired = new Date() > new Date(promo.expiryDate);
-                      return (
-                        <tr
-                          key={promo._id}
-                          className={
-                            !promo.isActive || isExpired
-                              ? "opacity-50 bg-light"
-                              : ""
-                          }
-                        >
-                          <td className="ps-4">
-                            <Badge
-                              bg="dark"
-                              className="fs-6 letter-spacing-1 px-3 py-2"
-                            >
-                              {promo.code}
-                            </Badge>
-                          </td>
-                          <td>
-                            <span className="fw-bold text-success fs-6">
-                              {promo.discountType === "percentage"
-                                ? `${promo.discountValue}% OFF`
-                                : `₹${promo.discountValue} FLAT`}
-                            </span>
-                            {promo.maxDiscountAmount && (
-                              <small
-                                className="d-block text-muted"
-                                style={{ fontSize: "10px" }}
-                              >
-                                Up to ₹{promo.maxDiscountAmount}
-                              </small>
-                            )}
-                          </td>
-                          <td className="fw-bold text-muted small">
-                            {promo.minOrderValue > 0
-                              ? `₹${promo.minOrderValue}`
-                              : "No Min"}
-                          </td>
-                          <td>
-                            {isExpired ? (
-                              <Badge bg="danger">Expired</Badge>
-                            ) : (
-                              <Form.Check
-                                type="switch"
-                                id={`switch-${promo._id}`}
-                                checked={promo.isActive}
-                                onChange={() => handleTogglePromo(promo._id)}
-                                label={
-                                  <span
-                                    className={`small fw-bold ${promo.isActive ? "text-success" : "text-muted"}`}
-                                  >
-                                    {promo.isActive ? "Active" : "Paused"}
-                                  </span>
-                                }
-                                className="custom-switch-premium"
-                              />
-                            )}
-                          </td>
-                          <td className="text-muted small">
-                            {new Date(promo.expiryDate).toLocaleDateString()}
-                          </td>
-                          <td className="text-end pe-4">
-                            <Button
-                              variant="outline-danger"
-                              size="sm"
-                              className="rounded-circle p-2"
-                              onClick={() => handleDeletePromo(promo._id)}
-                              title="Delete Promo"
-                            >
-                              <FiTrash2 />
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </Table>
-            </Card>
-          </Tab>
         </Tabs>
       </Container>
 
@@ -1190,160 +1113,6 @@ const AdminDashboard = () => {
         booking={chatBooking}
         currentUser={user}
       />
-
-      {/* 🌟 NEW: PROMO CREATION MODAL 🌟 */}
-      <Modal
-        show={showPromoModal}
-        onHide={() => setShowPromoModal(false)}
-        centered
-      >
-        <Modal.Header closeButton className="border-0 pb-0">
-          <Modal.Title className="fw-bold text-dark d-flex align-items-center">
-            <FiTag className="me-2 text-primary" /> Create Promo Code
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body className="pt-2">
-          <Form onSubmit={handleCreatePromo}>
-            <Form.Group className="mb-3">
-              <Form.Label className="small fw-bold text-muted">
-                PROMO CODE
-              </Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="e.g. SUMMER50"
-                className="bg-light fw-bold text-uppercase"
-                value={promoForm.code}
-                onChange={(e) =>
-                  setPromoForm({
-                    ...promoForm,
-                    code: e.target.value.toUpperCase(),
-                  })
-                }
-                required
-              />
-            </Form.Group>
-
-            <Row className="g-3 mb-3">
-              <Col xs={6}>
-                <Form.Group>
-                  <Form.Label className="small fw-bold text-muted">
-                    DISCOUNT TYPE
-                  </Form.Label>
-                  <Form.Select
-                    className="bg-light fw-bold"
-                    value={promoForm.discountType}
-                    onChange={(e) =>
-                      setPromoForm({
-                        ...promoForm,
-                        discountType: e.target.value,
-                      })
-                    }
-                  >
-                    <option value="percentage">Percentage (%)</option>
-                    <option value="flat">Flat Amount (₹)</option>
-                  </Form.Select>
-                </Form.Group>
-              </Col>
-              <Col xs={6}>
-                <Form.Group>
-                  <Form.Label className="small fw-bold text-muted">
-                    VALUE
-                  </Form.Label>
-                  <Form.Control
-                    type="number"
-                    placeholder={
-                      promoForm.discountType === "percentage"
-                        ? "e.g. 20"
-                        : "e.g. 100"
-                    }
-                    className="bg-light fw-bold"
-                    value={promoForm.discountValue}
-                    onChange={(e) =>
-                      setPromoForm({
-                        ...promoForm,
-                        discountValue: e.target.value,
-                      })
-                    }
-                    required
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
-
-            <Row className="g-3 mb-4">
-              <Col xs={6}>
-                <Form.Group>
-                  <Form.Label
-                    className="small fw-bold text-muted"
-                    style={{ fontSize: "10px" }}
-                  >
-                    MAX DISCOUNT (₹){" "}
-                    <span className="fw-normal opacity-50">(Optional)</span>
-                  </Form.Label>
-                  <Form.Control
-                    type="number"
-                    placeholder="e.g. 150"
-                    className="bg-light"
-                    value={promoForm.maxDiscountAmount}
-                    onChange={(e) =>
-                      setPromoForm({
-                        ...promoForm,
-                        maxDiscountAmount: e.target.value,
-                      })
-                    }
-                    disabled={promoForm.discountType === "flat"}
-                  />
-                </Form.Group>
-              </Col>
-              <Col xs={6}>
-                <Form.Group>
-                  <Form.Label
-                    className="small fw-bold text-muted"
-                    style={{ fontSize: "10px" }}
-                  >
-                    MIN ORDER VALUE (₹)
-                  </Form.Label>
-                  <Form.Control
-                    type="number"
-                    placeholder="e.g. 499"
-                    className="bg-light"
-                    value={promoForm.minOrderValue}
-                    onChange={(e) =>
-                      setPromoForm({
-                        ...promoForm,
-                        minOrderValue: e.target.value,
-                      })
-                    }
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
-
-            <Form.Group className="mb-4">
-              <Form.Label className="small fw-bold text-muted">
-                EXPIRY DATE
-              </Form.Label>
-              <Form.Control
-                type="date"
-                className="bg-light fw-bold"
-                value={promoForm.expiryDate}
-                onChange={(e) =>
-                  setPromoForm({ ...promoForm, expiryDate: e.target.value })
-                }
-                required
-              />
-            </Form.Group>
-
-            <Button
-              type="submit"
-              variant="dark"
-              className="w-100 py-3 rounded-pill fw-bold shadow-sm btn-primary-custom"
-            >
-              Generate Promo Code
-            </Button>
-          </Form>
-        </Modal.Body>
-      </Modal>
     </div>
   );
 };
