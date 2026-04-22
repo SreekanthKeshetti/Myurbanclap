@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import AuthContext, { AuthProvider } from "./context/AuthContext";
 import { CartProvider } from "./context/CartContext";
+// --- 🌟 IMPORT THE LOCKDOWN ---
+import GlobalLockdown from "./components/UI/GlobalLockdown";
 
 import Navigation from "./components/Layout/Navbar";
 import Footer from "./components/Layout/Footer";
@@ -31,6 +33,8 @@ function App() {
       <AuthProvider>
         <CartProvider>
           <Router>
+            {/* 🌟 MOUNT THE GLOBAL LOCKDOWN HERE 🌟 */}
+            <GlobalLockdown />
             <div className="d-flex flex-column min-vh-100 page-content">
               <Toaster position="top-center" reverseOrder={false} />
               <Navigation />
