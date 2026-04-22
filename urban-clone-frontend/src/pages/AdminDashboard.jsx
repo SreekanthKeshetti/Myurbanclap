@@ -70,6 +70,8 @@ const AdminDashboard = () => {
   // --- CHAT STATE (Provider-Customer Intercept) ---
   const [showChat, setShowChat] = useState(false);
   const [chatBooking, setChatBooking] = useState(null);
+  // --- NEW: PAYOUTS STATE ---
+  const [payouts, setPayouts] = useState([]);
 
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -82,6 +84,34 @@ const AdminDashboard = () => {
     "#8b5cf6",
     "#3b82f6",
   ];
+  // Fetch Payouts
+  const fetchPayouts = async (silent = false) => {
+    try {
+      const config = { headers: { Authorization: `Bearer ${user.token}` } };
+      const { data } = await axios.get("/api/payouts/admin/all", config);
+      setPayouts(data);
+    } catch (error) {
+      console.error("Failed to fetch payouts");
+    }
+  };
+
+  // Process Payout
+  const handleProcessPayout = async (id) => {
+    if (
+      !window.confirm(
+        "Are you sure you have transferred the money to the provider's UPI?",
+      )
+    )
+      return;
+    try {
+      const config = { headers: { Authorization: `Bearer ${user.token}` } };
+      await axios.put(`/api/payouts/admin/${id}/process`, {}, config);
+      toast.success("Payout marked as processed!");
+      fetchPayouts();
+    } catch (error) {
+      toast.error("Failed to process payout");
+    }
+  };
 
   useEffect(() => {
     if (user && user.role !== "admin") {
@@ -90,10 +120,12 @@ const AdminDashboard = () => {
     }
     fetchData();
     fetchSupportTickets();
+    fetchPayouts(); // <-- ADD THIS
 
     const interval = setInterval(() => {
       fetchData(true);
       fetchSupportTickets(true);
+      fetchPayouts(true); // <-- ADD THIS
     }, 10000);
     return () => clearInterval(interval);
   }, [user, navigate]);
@@ -974,6 +1006,99 @@ const AdminDashboard = () => {
                       </td>
                     </tr>
                   ))}
+                </tbody>
+              </Table>
+            </Card>
+          </Tab>
+          {/* ================= TAB 6: FINANCIAL PAYOUTS ================= */}
+          <Tab
+            eventKey="payouts"
+            title={
+              <span>
+                Payouts
+                {payouts.filter((p) => p.status === "pending").length > 0 && (
+                  <Badge bg="danger" className="ms-1">
+                    {payouts.filter((p) => p.status === "pending").length}
+                  </Badge>
+                )}
+              </span>
+            }
+          >
+            <Card className="border-0 shadow-sm rounded-4 overflow-hidden mt-3">
+              <Table responsive hover className="mb-0 align-middle">
+                <thead className="bg-light">
+                  <tr>
+                    <th className="ps-4 text-muted small fw-bold">PROVIDER</th>
+                    <th className="text-muted small fw-bold">UPI ID</th>
+                    <th className="text-muted small fw-bold">AMOUNT</th>
+                    <th className="text-muted small fw-bold">DATE</th>
+                    <th className="text-end pe-4 text-muted small fw-bold">
+                      STATUS / ACTION
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payouts.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="text-center py-4 text-muted">
+                        No payout requests found.
+                      </td>
+                    </tr>
+                  ) : (
+                    payouts.map((payout) => (
+                      <tr
+                        key={payout._id}
+                        className={
+                          payout.status === "processed"
+                            ? "opacity-75 bg-light"
+                            : ""
+                        }
+                      >
+                        <td className="ps-4">
+                          <div className="fw-bold text-dark">
+                            {payout.provider?.name || "Unknown"}
+                          </div>
+                          <div className="text-muted small">
+                            {payout.provider?.phone}
+                          </div>
+                        </td>
+                        <td>
+                          <Badge
+                            bg="dark"
+                            className="fw-normal letter-spacing-1"
+                          >
+                            {payout.upiId}
+                          </Badge>
+                        </td>
+                        <td>
+                          <span className="fw-bold text-success fs-6">
+                            ₹{payout.amount.toFixed(2)}
+                          </span>
+                        </td>
+                        <td className="text-muted small">
+                          {new Date(payout.createdAt).toLocaleDateString()}{" "}
+                          <br />
+                          {new Date(payout.createdAt).toLocaleTimeString()}
+                        </td>
+                        <td className="text-end pe-4">
+                          {payout.status === "processed" ? (
+                            <Badge bg="success" className="px-3 py-2">
+                              <FiCheckCircle className="me-1" /> Paid
+                            </Badge>
+                          ) : (
+                            <Button
+                              variant="success"
+                              size="sm"
+                              className="fw-bold px-3 py-2 shadow-sm btn-primary-custom"
+                              onClick={() => handleProcessPayout(payout._id)}
+                            >
+                              Mark as Paid
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </Table>
             </Card>

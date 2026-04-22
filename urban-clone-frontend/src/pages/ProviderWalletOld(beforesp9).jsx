@@ -8,9 +8,6 @@ import {
   Button,
   Row,
   Col,
-  Modal,
-  Form,
-  InputGroup,
 } from "react-bootstrap";
 import {
   FiArrowLeft,
@@ -19,7 +16,6 @@ import {
   FiTrendingUp,
   FiBriefcase,
   FiCheckCircle,
-  FiAlertTriangle,
 } from "react-icons/fi";
 import axios from "axios";
 import AuthContext from "../context/AuthContext";
@@ -34,7 +30,6 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import { toast } from "react-hot-toast";
 
 const ProviderWallet = () => {
   const { user } = useContext(AuthContext);
@@ -42,86 +37,59 @@ const ProviderWallet = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  // Analytics Filter State
-  const [timeFilter, setTimeFilter] = useState("7days");
-
-  // 🌟 NEW: Payout Modal States
-  const [showPayoutModal, setShowPayoutModal] = useState(false);
-  const [payoutAmount, setPayoutAmount] = useState("");
-  const [upiId, setUpiId] = useState("");
-  const [payoutLoading, setPayoutLoading] = useState(false);
-
-  // Extracted fetchWallet so we can call it after a successful payout request
-  const fetchWallet = async () => {
-    try {
-      const config = { headers: { Authorization: `Bearer ${user.token}` } };
-      const { data } = await axios.get("/api/bookings/provider/wallet", config);
-      setWalletData(data);
-      setLoading(false);
-    } catch (error) {
-      console.error("Wallet Fetch Error:", error);
-      setLoading(false);
-    }
-  };
+  // --- 🌟 NEW: ANALYTICS FILTER STATE ---
+  const [timeFilter, setTimeFilter] = useState("7days"); // '7days', '30days', 'all'
 
   useEffect(() => {
-    if (user) fetchWallet();
+    if (!user) return;
+
+    const fetchWallet = async () => {
+      try {
+        const config = { headers: { Authorization: `Bearer ${user.token}` } };
+        const { data } = await axios.get(
+          "/api/bookings/provider/wallet",
+          config,
+        );
+        setWalletData(data);
+        setLoading(false);
+      } catch (error) {
+        console.error("Wallet Fetch Error:", error);
+        setLoading(false);
+      }
+    };
+
+    fetchWallet();
   }, [user]);
 
-  // 🌟 Payout Submission Handler
-  const handleRequestPayout = async (e) => {
-    e.preventDefault();
-    if (payoutAmount < 500) return toast.error("Minimum payout is ₹500");
-    if (payoutAmount > walletData.balance)
-      return toast.error("Insufficient balance");
-    if (!upiId.includes("@"))
-      return toast.error("Enter a valid UPI ID (e.g. 9876543210@ybl)");
-
-    setPayoutLoading(true);
-    try {
-      const config = { headers: { Authorization: `Bearer ${user.token}` } };
-      await axios.post(
-        "/api/payouts/request",
-        { amount: Number(payoutAmount), upiId },
-        config,
-      );
-
-      toast.success("Payout requested! The admin will process it shortly.");
-      setShowPayoutModal(false);
-      setPayoutAmount("");
-      setUpiId("");
-
-      // Instantly refresh wallet UI
-      fetchWallet();
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Payout request failed");
-    } finally {
-      setPayoutLoading(false);
-    }
-  };
-
+  // --- 🌟 NEW: DYNAMIC CHART DATA CALCULATION ---
   const chartData = useMemo(() => {
     if (!walletData?.transactions) return [];
 
     const now = new Date();
+    // 1. We only want "credit" transactions for Earnings
     let earningsTxs = walletData.transactions.filter(
       (t) => t.type === "credit",
     );
 
+    // 2. Determine how many days to look back
     let daysToSubtract = 7;
     if (timeFilter === "30days") daysToSubtract = 30;
-    if (timeFilter === "all") daysToSubtract = 365 * 10;
+    if (timeFilter === "all") daysToSubtract = 365 * 10; // basically all time
 
     const cutoffDate = new Date();
     cutoffDate.setDate(now.getDate() - daysToSubtract);
 
+    // Filter by date
     earningsTxs = earningsTxs.filter((t) => new Date(t.date) >= cutoffDate);
+
     const grouped = {};
 
+    // 3. Pre-fill the last X days with 0 so the chart looks complete (for 7 or 30 days)
     if (timeFilter !== "all") {
       for (let i = daysToSubtract - 1; i >= 0; i--) {
         const d = new Date();
         d.setDate(now.getDate() - i);
+        // Format: 'Mar 25'
         const dateStr = d.toLocaleDateString("en-IN", {
           month: "short",
           day: "numeric",
@@ -130,6 +98,7 @@ const ProviderWallet = () => {
       }
     }
 
+    // 4. Map transactions to their dates
     earningsTxs.forEach((t) => {
       const dateStr = new Date(t.date).toLocaleDateString("en-IN", {
         month: "short",
@@ -140,12 +109,14 @@ const ProviderWallet = () => {
       }
     });
 
+    // 5. Convert to array for Recharts
     return Object.keys(grouped).map((key) => ({
       date: key,
       earnings: grouped[key],
     }));
   }, [walletData, timeFilter]);
 
+  // Calculate total earned in the selected period
   const periodTotal = chartData.reduce((sum, item) => sum + item.earnings, 0);
 
   if (loading)
@@ -182,6 +153,7 @@ const ProviderWallet = () => {
           {/* LEFT: MASTER WALLET CARD */}
           <Col lg={4}>
             <Card className="border-0 shadow-sm rounded-4 bg-dark text-white h-100 p-4 position-relative overflow-hidden">
+              {/* Background Decoration */}
               <div
                 className="position-absolute"
                 style={{ top: "-20px", right: "-20px", opacity: 0.1 }}
@@ -189,10 +161,7 @@ const ProviderWallet = () => {
                 <FiDollarSign size={150} />
               </div>
 
-              <div
-                style={{ zIndex: 2, position: "relative" }}
-                className="d-flex flex-column h-100"
-              >
+              <div style={{ zIndex: 2, position: "relative" }}>
                 <p className="mb-1 opacity-75 fw-bold small text-uppercase">
                   Net Wallet Balance
                 </p>
@@ -210,23 +179,14 @@ const ProviderWallet = () => {
                       <FiAlertTriangle className="me-2" size={16} />
                       You owe commission to Admin
                     </Badge>
-                  ) : walletData?.balance >= 500 ? (
-                    <Button
-                      variant="success"
-                      className="w-100 text-start d-flex align-items-center fw-bold border-0 shadow-sm py-2"
-                      onClick={() => setShowPayoutModal(true)}
-                    >
-                      <FiCheckCircle className="me-2" size={18} />
-                      Request Payout Now
-                    </Button>
                   ) : (
                     <Badge
-                      bg="warning"
-                      text="dark"
+                      bg="success"
                       className="p-2 fw-bold w-100 text-start d-flex align-items-center"
+                      style={{ fontSize: "14px" }}
                     >
-                      <FiAlertTriangle className="me-2" size={16} />
-                      Min ₹500 required to withdraw
+                      <FiCheckCircle className="me-2" size={16} />
+                      Available for Weekly Payout
                     </Badge>
                   )}
                 </div>
@@ -249,6 +209,7 @@ const ProviderWallet = () => {
                   </h3>
                 </div>
 
+                {/* 🌟 THE REAL-WORLD FILTER CHIPS 🌟 */}
                 <div className="d-flex gap-2 bg-light p-1 rounded-pill border">
                   <Button
                     variant={timeFilter === "7days" ? "dark" : "transparent"}
@@ -401,75 +362,6 @@ const ProviderWallet = () => {
           </Table>
         </Card>
       </Container>
-
-      {/* 🌟 NEW: PAYOUT MODAL 🌟 */}
-      <Modal
-        show={showPayoutModal}
-        onHide={() => setShowPayoutModal(false)}
-        centered
-      >
-        <Modal.Header closeButton className="border-0 pb-0">
-          <Modal.Title className="fw-bold text-dark d-flex align-items-center">
-            <FiDollarSign className="me-2 text-success" /> Request Payout
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <div className="bg-light p-3 rounded-3 mb-4 border d-flex justify-content-between align-items-center">
-            <span className="text-muted fw-bold small">AVAILABLE BALANCE</span>
-            <span className="fw-bold text-success fs-5">
-              ₹{walletData?.balance.toFixed(2)}
-            </span>
-          </div>
-
-          <Form onSubmit={handleRequestPayout}>
-            <Form.Group className="mb-3">
-              <Form.Label className="small fw-bold text-muted">
-                ENTER AMOUNT (Min ₹500)
-              </Form.Label>
-              <InputGroup>
-                <InputGroup.Text className="bg-light border-end-0 fw-bold">
-                  ₹
-                </InputGroup.Text>
-                <Form.Control
-                  type="number"
-                  placeholder="0.00"
-                  className="bg-light border-start-0 fw-bold fs-5"
-                  value={payoutAmount}
-                  onChange={(e) => setPayoutAmount(e.target.value)}
-                  max={walletData?.balance}
-                  required
-                />
-              </InputGroup>
-            </Form.Group>
-
-            <Form.Group className="mb-4">
-              <Form.Label className="small fw-bold text-muted">
-                UPI ID / VPA
-              </Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="e.g. yourname@ybl"
-                className="bg-light py-3"
-                value={upiId}
-                onChange={(e) => setUpiId(e.target.value.toLowerCase())}
-                required
-              />
-              <Form.Text className="text-muted" style={{ fontSize: "11px" }}>
-                Payments are processed manually by Admin within 24 hours.
-              </Form.Text>
-            </Form.Group>
-
-            <Button
-              type="submit"
-              variant="dark"
-              className="w-100 py-3 rounded-pill fw-bold shadow-sm"
-              disabled={payoutLoading}
-            >
-              {payoutLoading ? <Spinner size="sm" /> : "Confirm Payout Request"}
-            </Button>
-          </Form>
-        </Modal.Body>
-      </Modal>
     </div>
   );
 };
