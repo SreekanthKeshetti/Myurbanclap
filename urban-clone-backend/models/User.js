@@ -21,6 +21,19 @@ const userSchema = new mongoose.Schema({
   isPlusMember: { type: Boolean, default: false },
   plusMembershipExpiry: { type: Date },
   // --------------------------------------
+  // --- 🌟 NEW: SAVED ADDRESSES (Step 3) ---
+  savedAddresses: [
+    {
+      label: {
+        type: String,
+        enum: ["Home", "Work", "Other"],
+        default: "Other",
+      },
+      streetAddress: { type: String, required: true },
+      coordinates: { type: [Number] }, // [Longitude, Latitude]
+    },
+  ],
+  // --------------------------------------
 
   // Specific to Providers
   providerDetails: {

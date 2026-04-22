@@ -118,6 +118,16 @@ const updateUserProfile = async (req, res) => {
           coordinates: req.body.geoLocation.coordinates,
         };
       }
+      // --- 🌟 NEW: ADDRESS BOOK LOGIC (Step 3) ---
+      if (req.body.newAddress) {
+        user.savedAddresses.push(req.body.newAddress);
+      }
+      if (req.body.removeAddressId) {
+        user.savedAddresses = user.savedAddresses.filter(
+          (addr) => addr._id.toString() !== req.body.removeAddressId,
+        );
+      }
+      // -------------------------------------------
 
       const updatedUser = await user.save();
 
@@ -130,6 +140,10 @@ const updateUserProfile = async (req, res) => {
         role: updatedUser.role,
         providerDetails: updatedUser.providerDetails,
         geoLocation: updatedUser.geoLocation,
+        isPlusMember: updatedUser.isPlusMember, // Security fix: pass plus membership back
+        plusMembershipExpiry: updatedUser.plusMembershipExpiry,
+        walletBalance: updatedUser.walletBalance,
+        savedAddresses: updatedUser.savedAddresses, // Pass addresses back
         token: generateToken(updatedUser._id), // ensure token generator exists above
       });
     } else {

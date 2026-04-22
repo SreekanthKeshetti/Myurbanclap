@@ -9,7 +9,6 @@ import {
   Card,
   Spinner,
   InputGroup,
-  Badge,
 } from "react-bootstrap";
 import {
   FiMapPin,
@@ -19,10 +18,9 @@ import {
   FiShield,
   FiSmartphone,
   FiDollarSign,
+  FiChevronLeft,
   FiTag,
   FiXCircle,
-  FiHome,
-  FiBriefcase,
 } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
@@ -46,10 +44,10 @@ const Checkout = () => {
     removePromo,
     useWallet,
     setUseWallet,
-    amountToPay,
+    amountToPay, // 🌟 NEW: Extract wallet states
   } = useContext(CartContext);
 
-  const { user, handleOtpLogin } = useContext(AuthContext); // Bring in context updater
+  const { user } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const [date, setDate] = useState("");
@@ -59,11 +57,6 @@ const Checkout = () => {
   const [paymentMethod, setPaymentMethod] = useState("upi");
   const [loading, setLoading] = useState(false);
   const [couponInput, setCouponInput] = useState("");
-
-  // --- 🌟 NEW: ADDRESS BOOK STATES ---
-  const [selectedSavedAddress, setSelectedSavedAddress] = useState(null);
-  const [saveAddress, setSaveAddress] = useState(false);
-  const [addressLabel, setAddressLabel] = useState("Home");
 
   useEffect(() => {
     if (cartItems.length === 0) navigate("/services");
@@ -79,28 +72,12 @@ const Checkout = () => {
     }
   };
 
-  // --- 🌟 NEW: QUICK SELECT SAVED ADDRESS ---
-  const handleSelectSavedAddress = (addr) => {
-    if (selectedSavedAddress === addr._id) {
-      // Deselect
-      setSelectedSavedAddress(null);
-      setAddress("");
-      setCoordinates(null);
-    } else {
-      // Select
-      setSelectedSavedAddress(addr._id);
-      setAddress(addr.streetAddress);
-      if (addr.coordinates && addr.coordinates.length === 2) {
-        setCoordinates(addr.coordinates);
-      }
-    }
-  };
-
   const handlePayment = async (createdBookings) => {
     try {
       const bookingIds = createdBookings.map((b) => b._id);
       const config = { headers: { Authorization: `Bearer ${user.token}` } };
 
+      // 🌟 NEW: Send `useWallet` flag to Backend
       const { data: order } = await axios.post(
         "/api/payment/create-order",
         { bookingIds, promoCode, useWallet },
@@ -120,7 +97,7 @@ const Checkout = () => {
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_signature: response.razorpay_signature,
             bookingIds: bookingIds,
-            useWallet,
+            useWallet, // 🌟 Pass to verify so DB drops wallet balance
             promoCode,
           };
 
@@ -128,7 +105,7 @@ const Checkout = () => {
 
           const receiptData = {
             items: cartItems,
-            grandTotal,
+            grandTotal: grandTotal,
             paymentMethod: "online",
             promoCode,
             discount,
@@ -138,6 +115,7 @@ const Checkout = () => {
             address,
           };
 
+          // Update local storage so the UI updates instantly
           if (useWallet) {
             const updatedUser = {
               ...user,
@@ -145,7 +123,7 @@ const Checkout = () => {
                 user.walletBalance - Math.min(grandTotal, user.walletBalance),
             };
             localStorage.setItem("userInfo", JSON.stringify(updatedUser));
-            if (handleOtpLogin) handleOtpLogin(updatedUser); // Update context instantly
+            // Note: In a real app, you'd update Context here too, but page reload on success handles it.
           }
 
           clearCart();
@@ -176,22 +154,6 @@ const Checkout = () => {
         },
       };
 
-      // --- 🌟 NEW: SAVE ADDRESS TO PROFILE IF CHECKED ---
-      if (saveAddress && !selectedSavedAddress) {
-        const { data: updatedUser } = await axios.put(
-          "/api/auth/profile",
-          {
-            newAddress: {
-              label: addressLabel,
-              streetAddress: address,
-              coordinates,
-            },
-          },
-          config,
-        );
-        if (handleOtpLogin) handleOtpLogin(updatedUser); // Update context instantly
-      }
-
       const { data: createdBookings } = await axios.post(
         "/api/bookings/bulk",
         {
@@ -210,22 +172,24 @@ const Checkout = () => {
         config,
       );
 
+      // 🌟 NEW: 100% WALLET BYPASS LOGIC 🌟
       if (useWallet && amountToPay === 0) {
         await axios.post(
           "/api/payment/wallet-pay",
           { bookingIds: createdBookings.map((b) => b._id), promoCode },
           config,
         );
+
+        // Update local state instantly
         const updatedUser = {
           ...user,
           walletBalance: user.walletBalance - grandTotal,
         };
         localStorage.setItem("userInfo", JSON.stringify(updatedUser));
-        if (handleOtpLogin) handleOtpLogin(updatedUser);
 
         const receiptData = {
           items: cartItems,
-          grandTotal,
+          grandTotal: grandTotal,
           paymentMethod: "Wallet Paid",
           promoCode,
           discount,
@@ -238,13 +202,15 @@ const Checkout = () => {
         clearCart();
         navigate("/order-success", { state: { orderData: receiptData } });
       } else if (paymentMethod !== "cash") {
+        // Standard Razorpay Flow (Partial Wallet or Card/UPI)
         handlePayment(createdBookings);
         setLoading(false);
       } else {
+        // Cash Flow (Wallet Disabled)
         setLoading(false);
         const receiptData = {
           items: cartItems,
-          grandTotal,
+          grandTotal: grandTotal,
           paymentMethod: "cash",
           promoCode,
           discount,
@@ -275,11 +241,12 @@ const Checkout = () => {
         <h2 className="fw-bold mb-4">Checkout</h2>
         <Row className="g-4">
           <Col lg={7}>
+            {/* SCHEDULE & LOCATION CARD */}
             <Card className="border-0 shadow-sm rounded-4 p-4 mb-4">
               <h5 className="fw-bold mb-3">1. Schedule & Location</h5>
               <Form>
                 <Row className="g-3">
-                  <Col md={12}>
+                  <Col md={6}>
                     <Form.Group className="mb-3">
                       <Form.Label className="small fw-bold text-muted mb-2">
                         SELECT DATE & TIME
@@ -293,110 +260,24 @@ const Checkout = () => {
                       />
                     </Form.Group>
                   </Col>
-
                   <Col md={12}>
                     <Form.Group className="mb-3">
                       <Form.Label className="small fw-bold text-muted">
                         <FiMapPin className="me-1" /> DELIVERY LOCATION
                       </Form.Label>
-
-                      {/* 🌟 NEW: SAVED ADDRESS PILLS 🌟 */}
-                      {user?.savedAddresses?.length > 0 && (
-                        <div className="d-flex flex-wrap gap-2 mb-3">
-                          {user.savedAddresses.map((addr) => (
-                            <div
-                              key={addr._id}
-                              className={`p-2 px-3 border rounded-3 cursor-pointer shadow-sm transition-all ${selectedSavedAddress === addr._id ? "border-primary bg-primary bg-opacity-10" : "bg-white"}`}
-                              onClick={() => handleSelectSavedAddress(addr)}
-                            >
-                              <div className="fw-bold small d-flex align-items-center text-dark">
-                                {addr.label === "Home" ? (
-                                  <FiHome className="me-1 text-primary" />
-                                ) : addr.label === "Work" ? (
-                                  <FiBriefcase className="me-1 text-success" />
-                                ) : (
-                                  <FiMapPin className="me-1 text-danger" />
-                                )}
-                                {addr.label}
-                                {selectedSavedAddress === addr._id && (
-                                  <FiCheckCircle
-                                    className="ms-2 text-primary"
-                                    size={14}
-                                  />
-                                )}
-                              </div>
-                              <div
-                                className="text-muted text-truncate mt-1"
-                                style={{ fontSize: "11px", maxWidth: "160px" }}
-                              >
-                                {addr.streetAddress}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Map is disabled/greyed out if a saved address is selected to avoid confusion */}
-                      <div
-                        className={
-                          selectedSavedAddress
-                            ? "opacity-50 pointer-events-none"
-                            : ""
-                        }
-                      >
-                        <MapPicker
-                          setAddress={setAddress}
-                          setCoordinates={setCoordinates}
-                        />
-                      </div>
-
+                      <MapPicker
+                        setAddress={setAddress}
+                        setCoordinates={setCoordinates}
+                      />
                       <Form.Control
                         as="textarea"
                         rows={2}
-                        className="mt-2 fw-bold"
-                        placeholder="House No, Floor, Landmark..."
+                        className="mt-2"
+                        placeholder="House No, Floor..."
                         value={address}
-                        onChange={(e) => {
-                          setAddress(e.target.value);
-                          if (selectedSavedAddress)
-                            setSelectedSavedAddress(null); // Deselect pill if they manually type
-                        }}
+                        onChange={(e) => setAddress(e.target.value)}
                         required
                       />
-
-                      {/* 🌟 NEW: SAVE ADDRESS CHECKBOX 🌟 */}
-                      {!selectedSavedAddress && address.length > 5 && (
-                        <div className="mt-3 p-3 bg-light rounded-3 border">
-                          <Form.Check
-                            type="checkbox"
-                            label={
-                              <span className="fw-bold small text-dark">
-                                Save this address for future bookings
-                              </span>
-                            }
-                            checked={saveAddress}
-                            onChange={(e) => setSaveAddress(e.target.checked)}
-                            className="custom-switch-premium"
-                          />
-                          {saveAddress && (
-                            <div className="mt-2 d-flex gap-2">
-                              {["Home", "Work", "Other"].map((label) => (
-                                <Badge
-                                  key={label}
-                                  bg={addressLabel === label ? "dark" : "white"}
-                                  text={
-                                    addressLabel === label ? "white" : "dark"
-                                  }
-                                  className="border cursor-pointer px-3 py-2 shadow-sm"
-                                  onClick={() => setAddressLabel(label)}
-                                >
-                                  {label}
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
                     </Form.Group>
                   </Col>
                 </Row>
@@ -406,6 +287,8 @@ const Checkout = () => {
             {/* PAYMENT METHOD CARD */}
             <Card className="border-0 shadow-sm rounded-4 p-4">
               <h5 className="fw-bold mb-3">2. Payment Method</h5>
+
+              {/* 🌟 THE WALLET TOGGLE 🌟 */}
               {user?.walletBalance > 0 && (
                 <div
                   className={`p-3 mb-3 border rounded-3 transition-all ${useWallet ? "border-success bg-success bg-opacity-10 shadow-sm" : "bg-white"}`}
@@ -423,7 +306,7 @@ const Checkout = () => {
                       onChange={(e) => {
                         setUseWallet(e.target.checked);
                         if (e.target.checked && paymentMethod === "cash")
-                          setPaymentMethod("upi");
+                          setPaymentMethod("upi"); // Force online if wallet used
                       }}
                       className="mb-0 custom-switch-premium"
                     />
@@ -505,7 +388,7 @@ const Checkout = () => {
             </Card>
           </Col>
 
-          {/* SUMMARY CARD (Unchanged) */}
+          {/* RIGHT SIDE: SUMMARY */}
           <Col lg={5}>
             <div className="sticky-top" style={{ top: "120px" }}>
               <Card className="border-0 shadow-lg rounded-4 overflow-hidden">
@@ -529,6 +412,7 @@ const Checkout = () => {
                     ))}
                   </div>
 
+                  {/* PROMO BOX */}
                   <div className="mb-4 pb-4 border-bottom border-top pt-4">
                     <h6 className="fw-bold mb-3">
                       <FiTag className="me-2" /> Coupons and Offers
@@ -598,6 +482,7 @@ const Checkout = () => {
                     </span>
                   </div>
 
+                  {/* 🌟 NEW: GRAND TOTAL VS PAYABLE TOTAL */}
                   <div className="border-top pt-3 mt-2">
                     <div className="d-flex justify-content-between align-items-center mb-2">
                       <span className="fw-bold text-dark">Grand Total</span>
@@ -605,6 +490,7 @@ const Checkout = () => {
                         ₹{grandTotal.toFixed(2)}
                       </span>
                     </div>
+
                     {useWallet && (
                       <div className="d-flex justify-content-between align-items-center mb-3 text-success">
                         <span className="fw-bold">Wallet Applied</span>
@@ -617,6 +503,7 @@ const Checkout = () => {
                         </span>
                       </div>
                     )}
+
                     <div className="d-flex justify-content-between align-items-center p-3 bg-light rounded-3 mb-4 mt-2 border">
                       <span className="fw-bold fs-5">Amount to Pay</span>
                       <span className="fw-bold fs-4 text-primary">
