@@ -84,6 +84,8 @@ const AdminDashboard = () => {
     minOrderValue: "",
     expiryDate: "",
   });
+  // --- 🌟 APP CONFIG STATE ---
+  const [appConfig, setAppConfig] = useState({ isOperationsPaused: false });
 
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -103,6 +105,7 @@ const AdminDashboard = () => {
       return;
     }
     fetchData();
+    fetchConfig();
     fetchSupportTickets();
     fetchPayouts();
     fetchPromos();
@@ -211,6 +214,15 @@ const AdminDashboard = () => {
       fetchPromos();
     } catch (error) {
       toast.error("Failed to delete promo");
+    }
+  };
+  // APP CONFIG FETCH
+  const fetchConfig = async () => {
+    try {
+      const { data } = await axios.get("/api/config");
+      setAppConfig(data);
+    } catch (error) {
+      console.error("Failed to fetch config");
     }
   };
 
@@ -322,6 +334,28 @@ const AdminDashboard = () => {
     setChatBooking(booking);
     setShowChat(true);
   };
+  // APP Config
+  const handleToggleEmergency = async () => {
+    const newStatus = !appConfig.isOperationsPaused;
+    const confirmMsg = newStatus
+      ? "🚨 WARNING: This will instantly PAUSE operations and block all customer checkouts. Proceed?"
+      : "✅ Resume operations?";
+
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const config = { headers: { Authorization: `Bearer ${user.token}` } };
+      const { data } = await axios.put(
+        "/api/config",
+        { isOperationsPaused: newStatus },
+        config,
+      );
+      setAppConfig(data);
+      toast.success(newStatus ? "APP PAUSED" : "APP RESUMED");
+    } catch (error) {
+      toast.error("Failed to update config");
+    }
+  };
 
   // --- STATS ---
   const customers = usersList.filter((u) => u.role === "customer");
@@ -356,15 +390,34 @@ const AdminDashboard = () => {
       }}
     >
       <Container fluid style={{ maxWidth: "1400px" }}>
-        <div className="d-flex justify-content-between align-items-center mb-4">
+        <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
           <div>
             <h2 className="fw-bold mb-0">Admin God Mode</h2>
             <Badge bg="danger" className="mt-1">
               <FiShield className="me-1" /> System Administrator
             </Badge>
           </div>
-        </div>
 
+          {/* 🌟 EMERGENCY KILL SWITCH 🌟 */}
+          <div
+            className={`p-3 rounded-3 border d-flex align-items-center shadow-sm transition-all ${appConfig.isOperationsPaused ? "bg-danger bg-opacity-10 border-danger" : "bg-white"}`}
+          >
+            <Form.Check
+              type="switch"
+              id="emergency-switch"
+              label={
+                <span
+                  className={`fw-bold ms-2 ${appConfig.isOperationsPaused ? "text-danger" : "text-dark"}`}
+                >
+                  EMERGENCY STOP (Lock App)
+                </span>
+              }
+              checked={appConfig.isOperationsPaused}
+              onChange={handleToggleEmergency}
+              className="custom-switch-premium mb-0"
+            />
+          </div>
+        </div>
         <Tabs defaultActiveKey="support" className="mb-4 border-0 custom-tabs">
           {/* TAB 1: SUPPORT CRM */}
           <Tab

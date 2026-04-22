@@ -48,6 +48,18 @@ const BookingModal = ({ show, handleClose, service }) => {
   const [taxes, setTaxes] = useState(0);
   const [platformFee, setPlatformFee] = useState(29);
   const [grandTotal, setGrandTotal] = useState(0);
+  // --- 🌟 APP CONFIG STATE ---
+  const [appConfig, setAppConfig] = useState({ isOperationsPaused: false });
+
+  useEffect(() => {
+    if (show) {
+      axios
+        .get("/api/config")
+        .then((res) => setAppConfig(res.data))
+        .catch((err) => console.log(err));
+    }
+  }, [show]);
+  // End of 🌟 APP CONFIG STATE
 
   // 🌟 NEW: Local Wallet States for Modal
   const [useWallet, setUseWallet] = useState(false);
@@ -401,13 +413,30 @@ const BookingModal = ({ show, handleClose, service }) => {
                       required
                     />
                   </Form.Group>
-                  <Button
+                  {/* <Button
                     variant="dark"
                     type="submit"
                     className="w-100 py-3 fw-bold rounded-pill btn-primary-custom shadow-lg"
                   >
                     Proceed to Pay (₹{grandTotal.toFixed(2)})
-                  </Button>
+                  </Button> */}
+                  {appConfig.isOperationsPaused ? (
+                    <Button
+                      variant="danger"
+                      className="w-100 py-3 fw-bold rounded-pill shadow-sm opacity-75"
+                      disabled
+                    >
+                      Operations Temporarily Paused
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="dark"
+                      type="submit"
+                      className="w-100 py-3 fw-bold rounded-pill btn-primary-custom shadow-lg"
+                    >
+                      Proceed to Pay (₹{grandTotal.toFixed(2)})
+                    </Button>
+                  )}
                 </Form>
               )}
 

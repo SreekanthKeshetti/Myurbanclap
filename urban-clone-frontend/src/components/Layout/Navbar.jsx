@@ -41,6 +41,26 @@ const Navigation = () => {
   // NOTIFICATION STATES
   const [notifications, setNotifications] = useState([]);
   const unreadCount = notifications.filter((n) => !n.isRead).length;
+  // --- 🌟 APP CONFIG (Emergency Pause) ---
+  const [appConfig, setAppConfig] = useState({
+    isOperationsPaused: false,
+    emergencyMessage: "",
+  });
+  useEffect(() => {
+    // 1. Fetch initial status
+    axios
+      .get("/api/config")
+      .then((res) => setAppConfig(res.data))
+      .catch((err) => console.log(err));
+
+    // 2. Listen for instant real-time lockdown
+    const configHandler = (data) => {
+      setAppConfig(data);
+    };
+    socket.on("app_config_update", configHandler);
+    return () => socket.off("app_config_update", configHandler);
+  }, []);
+  // -----------------
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -389,6 +409,21 @@ const Navigation = () => {
           </Navbar.Collapse>
         </Container>
       </Navbar>
+      {/* 🌟 THE GLOBAL EMERGENCY BANNER 🌟 */}
+      {appConfig.isOperationsPaused && (
+        <div
+          className="w-100 bg-danger text-white text-center py-2 px-3 shadow-lg fw-bold"
+          style={{
+            position: "fixed",
+            top: "76px",
+            zIndex: 1020,
+            letterSpacing: "1px",
+            fontSize: "14px",
+          }}
+        >
+          🚨 {appConfig.emergencyMessage}
+        </div>
+      )}
     </>
   );
 };

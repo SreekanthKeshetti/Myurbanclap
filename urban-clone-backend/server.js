@@ -21,6 +21,7 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const supportRoutes = require("./routes/supportRoutes");
 const initCronJobs = require("./cron/autoReassign");
 const payoutRoutes = require("./routes/payoutRoutes");
+const configRoutes = require("./routes/configRoutes");
 
 // Load config
 connectDB();
@@ -99,6 +100,7 @@ app.use("/api/promo", promoRoutes);
 app.use("/api/support", supportRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/payouts", payoutRoutes);
+app.use("/api/config", configRoutes);
 
 // --- CHAT ROUTE: GET MESSAGES ---
 // (Fetching chat history for a specific booking)

@@ -34,6 +34,16 @@ const Cart = () => {
   const [couponInput, setCouponInput] = useState("");
   const [showCouponInput, setShowCouponInput] = useState(false);
   const [upsells, setUpsells] = useState([]);
+  // App config state to check if operations are paused
+  const [appConfig, setAppConfig] = useState({ isOperationsPaused: false });
+
+  useEffect(() => {
+    axios
+      .get("/api/config")
+      .then((res) => setAppConfig(res.data))
+      .catch((err) => console.log(err));
+  }, []);
+  // end of app config fetch
 
   // Fetch "People also take" items
   useEffect(() => {
@@ -395,7 +405,7 @@ const Cart = () => {
               )}
 
               {/* ACTION BUTTON */}
-              <Button
+              {/* <Button
                 variant="dark"
                 className="w-100 py-3 rounded-3 fw-bold btn-primary-custom d-flex justify-content-center align-items-center fs-6 mt-3 shadow-lg"
                 onClick={() => {
@@ -404,7 +414,30 @@ const Cart = () => {
                 }}
               >
                 {!user ? "Login/Sign up to proceed" : "Proceed to checkout"}
-              </Button>
+              </Button> */}
+              {/* ACTION BUTTON */}
+              {appConfig.isOperationsPaused ? (
+                <Button
+                  variant="danger"
+                  size="lg"
+                  className="w-100 py-3 rounded-3 fw-bold d-flex justify-content-center align-items-center fs-6 mt-3 shadow-sm opacity-75"
+                  disabled
+                >
+                  Operations Temporarily Paused
+                </Button>
+              ) : (
+                <Button
+                  variant="dark"
+                  size="lg"
+                  className="w-100 py-3 rounded-3 fw-bold btn-primary-custom d-flex justify-content-center align-items-center fs-6 mt-3 shadow-lg"
+                  onClick={() => {
+                    if (!user) navigate("/login");
+                    else navigate("/checkout");
+                  }}
+                >
+                  {!user ? "Login/Sign up to proceed" : "Proceed to checkout"}
+                </Button>
+              )}
             </div>
           </Col>
         </Row>
