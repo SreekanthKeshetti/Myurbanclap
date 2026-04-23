@@ -114,7 +114,7 @@ const AdminDashboard = () => {
       fetchData(true);
       fetchSupportTickets(true);
       fetchPayouts(true);
-    }, 10000);
+    }, 60000); // 🌟 INCREASED to 60 seconds (60000 ms) instead of 10 seconds
     return () => clearInterval(interval);
   }, [user, navigate]);
 

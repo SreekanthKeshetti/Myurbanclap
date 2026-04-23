@@ -27,6 +27,8 @@ const configRoutes = require("./routes/configRoutes");
 connectDB();
 
 const app = express();
+// 🌟 CRITICAL FIX FOR RENDER/PRODUCTION: Trust the reverse proxy
+app.set("trust proxy", 1);
 
 // Middleware
 // app.use(express.json());
