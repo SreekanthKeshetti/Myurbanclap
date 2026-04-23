@@ -375,13 +375,36 @@ const Bookings = () => {
                             >
                               {booking.service?.name || "Service Unavailable"}
                             </h5>
-                            <div className="d-flex flex-wrap gap-3 text-muted small fw-bold">
+                            {/* <div className="d-flex flex-wrap gap-3 text-muted small fw-bold">
                               <div className="d-flex align-items-center">
                                 <FiCalendar className="me-1" /> {booking.date}
                               </div>
                               <div className="d-flex align-items-center">
                                 <FiClock className="me-1" /> {booking.timeSlot}
                               </div>
+                            </div> */}
+                            <div className="d-flex flex-wrap gap-3 text-muted small fw-bold mb-2">
+                              <div className="d-flex align-items-center">
+                                <FiCalendar className="me-1 text-primary" />{" "}
+                                {booking.date}
+                              </div>
+                              <div className="d-flex align-items-center">
+                                <FiClock className="me-1 text-primary" />{" "}
+                                {booking.timeSlot}
+                              </div>
+                            </div>
+
+                            {/* 🌟 NEW: ADDED FULL ADDRESS VISIBILITY 🌟 */}
+                            <div className="d-flex align-items-start text-muted small fw-bold mt-1">
+                              <FiMapPin className="me-1 mt-1 text-danger flex-shrink-0" />
+                              <span
+                                style={{
+                                  wordBreak: "break-word",
+                                  lineHeight: "1.4",
+                                }}
+                              >
+                                {booking.address}
+                              </span>
                             </div>
                           </div>
                           <div className="text-sm-end border-start-sm ps-sm-4 mt-3 mt-sm-0">

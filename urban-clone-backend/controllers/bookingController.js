@@ -970,6 +970,7 @@ const getAnalytics = async (req, res) => {
     }));
 
     // 2. BOOKINGS BY CATEGORY (Pie Chart)
+    // 2. BOOKINGS BY CATEGORY (Pie Chart)
     const categoryData = await Booking.aggregate([
       // Stage 1: Get Service Details
       {
@@ -982,11 +983,22 @@ const getAnalytics = async (req, res) => {
       },
       { $unwind: "$serviceDoc" },
 
-      // Stage 2: Group by Category Name and Count them
+      // 🌟 NEW: Stage 1.5 - Lookup the actual Category document using the category ID from the Service
+      {
+        $lookup: {
+          from: "categories", // MongoDB collection names are lowercase and plural
+          localField: "serviceDoc.category",
+          foreignField: "_id",
+          as: "categoryDoc",
+        },
+      },
+      { $unwind: "$categoryDoc" },
+
+      // Stage 2: Group by the ACTUAL Category Name, not the ID!
       {
         $group: {
-          _id: "$serviceDoc.category",
-          count: { $sum: 1 }, // Add 1 for every document found in this category
+          _id: "$categoryDoc.name", // 🌟 FIXED
+          count: { $sum: 1 },
         },
       },
     ]);

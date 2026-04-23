@@ -1078,7 +1078,7 @@ const JobCard = ({
             </div>
           )}
 
-          <div>
+          {/* <div>
             <small
               className="text-muted fw-bold d-block"
               style={{ fontSize: "10px" }}
@@ -1088,6 +1088,21 @@ const JobCard = ({
             <div className="d-flex align-items-start text-dark small mt-1">
               <FiMapPin className="text-danger me-2 mt-1 flex-shrink-0" />
               <span className="text-truncate" style={{ maxWidth: "200px" }}>
+                {job.address}
+              </span>
+            </div>
+          </div> */}
+          <div>
+            <small
+              className="text-muted fw-bold d-block"
+              style={{ fontSize: "10px" }}
+            >
+              LOCATION
+            </small>
+            <div className="d-flex align-items-start text-dark small mt-1">
+              <FiMapPin className="text-danger me-2 mt-1 flex-shrink-0" />
+              {/* Removed text-truncate and maxWidth, added wordBreak to prevent overflowing */}
+              <span style={{ wordBreak: "break-word", lineHeight: "1.4" }}>
                 {job.address}
               </span>
             </div>

@@ -10,10 +10,10 @@ const TimeSlotPicker = ({
   setSelectedDate,
   selectedTime,
   setSelectedTime,
-  serviceId,
+  serviceId, // <--- New Prop needed
 }) => {
   const [dates, setDates] = useState([]);
-  const [fullSlots, setFullSlots] = useState([]);
+  const [fullSlots, setFullSlots] = useState([]); // Slots that are booked out
   const [loading, setLoading] = useState(false);
 
   // 1. Generate Next 3 Days
@@ -43,16 +43,13 @@ const TimeSlotPicker = ({
   useEffect(() => {
     if (selectedDate && serviceId) {
       checkSlots();
-      // Reset selected time if the user switches days and the selected time is now invalid
-      if (selectedTime && checkIsSlotPassed(selectedTime, selectedDate)) {
-        setSelectedTime("");
-      }
     }
   }, [selectedDate, serviceId]);
 
   const checkSlots = async () => {
     setLoading(true);
     try {
+      // No Auth needed if route is public, otherwise add headers
       const { data } = await axios.post("/api/bookings/check-availability", {
         date: selectedDate,
         serviceId: serviceId,
@@ -62,32 +59,6 @@ const TimeSlotPicker = ({
       console.error("Availability Check Failed");
     }
     setLoading(false);
-  };
-
-  // 🌟 THE FIX: Anti-Time Travel Function 🌟
-  const checkIsSlotPassed = (timeStr, chosenDate) => {
-    const now = new Date();
-    // Matches the format generated in the useEffect above
-    const todayStr = now.toISOString().split("T")[0];
-
-    // If the chosen date is in the future, all slots are valid!
-    if (chosenDate !== todayStr) return false;
-
-    // Parse the slot time (e.g., "10:30 AM")
-    const [time, modifier] = timeStr.split(" ");
-    let [hours, minutes] = time.split(":");
-    hours = parseInt(hours, 10);
-    minutes = parseInt(minutes, 10);
-
-    if (modifier === "PM" && hours < 12) hours += 12;
-    if (modifier === "AM" && hours === 12) hours = 0;
-
-    // Convert both to total minutes from midnight for easy comparison
-    const slotMinutes = hours * 60 + minutes;
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-    // Disable if the slot is in the past OR within the next 60 minutes
-    return slotMinutes <= currentMinutes + 60;
   };
 
   // Time Slots Data
@@ -143,10 +114,7 @@ const TimeSlotPicker = ({
                   time={time}
                   selected={selectedTime}
                   onSelect={setSelectedTime}
-                  isDisabled={
-                    fullSlots.includes(time) ||
-                    checkIsSlotPassed(time, selectedDate)
-                  }
+                  isFull={fullSlots.includes(time)}
                 />
               ))}
             </div>
@@ -164,10 +132,7 @@ const TimeSlotPicker = ({
                   time={time}
                   selected={selectedTime}
                   onSelect={setSelectedTime}
-                  isDisabled={
-                    fullSlots.includes(time) ||
-                    checkIsSlotPassed(time, selectedDate)
-                  }
+                  isFull={fullSlots.includes(time)}
                 />
               ))}
             </div>
@@ -185,17 +150,14 @@ const TimeSlotPicker = ({
                   time={time}
                   selected={selectedTime}
                   onSelect={setSelectedTime}
-                  isDisabled={
-                    fullSlots.includes(time) ||
-                    checkIsSlotPassed(time, selectedDate)
-                  }
+                  isFull={fullSlots.includes(time)}
                 />
               ))}
             </div>
           </div>
 
           {fullSlots.length > 0 && (
-            <div className="mt-3 small text-danger fw-bold">
+            <div className="mt-3 small text-danger">
               <FiAlertCircle className="me-1" /> Some slots are fully booked.
             </div>
           )}
@@ -205,14 +167,14 @@ const TimeSlotPicker = ({
   );
 };
 
-// 🌟 THE BUTTON LOGIC 🌟
-const TimeBtn = ({ time, selected, onSelect, isDisabled }) => (
+// Updated Button to handle 'disabled' state
+const TimeBtn = ({ time, selected, onSelect, isFull }) => (
   <Button
     variant={selected === time ? "dark" : "white"}
-    disabled={isDisabled}
-    className={`rounded-pill px-3 py-1 small fw-bold ${selected !== time ? "border text-muted bg-white" : ""} ${isDisabled ? "text-decoration-line-through opacity-50" : ""}`}
+    disabled={isFull}
+    className={`rounded-pill px-3 py-1 small fw-bold ${selected !== time ? "border text-muted bg-white" : ""} ${isFull ? "text-decoration-line-through opacity-50" : ""}`}
     style={{ fontSize: "12px" }}
-    onClick={() => !isDisabled && onSelect(time)}
+    onClick={() => !isFull && onSelect(time)}
   >
     {time}
   </Button>
