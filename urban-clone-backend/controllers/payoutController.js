@@ -94,5 +94,18 @@ const processPayout = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+// @desc    Get logged-in provider's payout requests
+// @route   GET /api/payouts/my-payouts
+// @access  Private/Provider
+const getMyPayouts = async (req, res) => {
+  try {
+    const payouts = await PayoutRequest.find({ provider: req.user.id }).sort({
+      createdAt: -1,
+    });
+    res.json(payouts);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
-module.exports = { requestPayout, getAllPayouts, processPayout };
+module.exports = { requestPayout, getAllPayouts, processPayout, getMyPayouts };

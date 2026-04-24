@@ -4,11 +4,13 @@ const {
   requestPayout,
   getAllPayouts,
   processPayout,
+  getMyPayouts,
 } = require("../controllers/payoutController");
 const { protect, provider, admin } = require("../middleware/authMiddleware");
 
 // Provider Routes
 router.post("/request", protect, provider, requestPayout);
+router.get("/my-payouts", protect, provider, getMyPayouts);
 
 // Admin Routes
 router.get("/admin/all", protect, admin, getAllPayouts);

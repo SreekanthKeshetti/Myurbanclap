@@ -50,13 +50,33 @@ const ProviderWallet = () => {
   const [payoutAmount, setPayoutAmount] = useState("");
   const [upiId, setUpiId] = useState("");
   const [payoutLoading, setPayoutLoading] = useState(false);
+  // 🌟 NEW: Payout Requests State
+  const [payoutRequests, setPayoutRequests] = useState([]);
 
   // Extracted fetchWallet so we can call it after a successful payout request
+  // const fetchWallet = async () => {
+  //   try {
+  //     const config = { headers: { Authorization: `Bearer ${user.token}` } };
+  //     const { data } = await axios.get("/api/bookings/provider/wallet", config);
+  //     setWalletData(data);
+  //     setLoading(false);
+  //   } catch (error) {
+  //     console.error("Wallet Fetch Error:", error);
+  //     setLoading(false);
+  //   }
+  // };
   const fetchWallet = async () => {
     try {
       const config = { headers: { Authorization: `Bearer ${user.token}` } };
-      const { data } = await axios.get("/api/bookings/provider/wallet", config);
-      setWalletData(data);
+
+      // 🌟 Fetch both Wallet Balance and Payout History simultaneously
+      const [walletRes, payoutsRes] = await Promise.all([
+        axios.get("/api/bookings/provider/wallet", config),
+        axios.get("/api/payouts/my-payouts", config),
+      ]);
+
+      setWalletData(walletRes.data);
+      setPayoutRequests(payoutsRes.data); // Save payouts to state
       setLoading(false);
     } catch (error) {
       console.error("Wallet Fetch Error:", error);
@@ -393,6 +413,69 @@ const ProviderWallet = () => {
                     >
                       {txn.type === "credit" ? "+" : "-"}₹
                       {Math.abs(txn.amount).toFixed(2)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </Table>
+        </Card>
+        {/* 🌟 NEW: WITHDRAWAL TRACKER 🌟 */}
+        <h5 className="fw-bold mb-3 d-flex align-items-center mt-5">
+          <FiTrendingUp className="me-2 text-success" /> Withdrawal Tracker
+        </h5>
+        <Card className="border-0 shadow-sm rounded-4 overflow-hidden bg-white mb-5">
+          <Table responsive hover className="mb-0 align-middle">
+            <thead className="bg-light">
+              <tr>
+                <th className="ps-4 text-muted small fw-bold py-3">UPI ID</th>
+                <th className="text-muted small fw-bold py-3">REQUEST DATE</th>
+                <th className="text-muted small fw-bold py-3">AMOUNT</th>
+                <th className="text-end pe-4 text-muted small fw-bold py-3">
+                  STATUS
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {payoutRequests.length === 0 ? (
+                <tr>
+                  <td colSpan="4" className="text-center py-5 text-muted">
+                    <p className="mb-0 fw-bold">No withdrawal requests yet.</p>
+                  </td>
+                </tr>
+              ) : (
+                payoutRequests.map((request) => (
+                  <tr key={request._id}>
+                    <td className="ps-4 py-3 fw-bold text-dark">
+                      {request.upiId}
+                    </td>
+                    <td className="text-muted small py-3">
+                      {new Date(request.createdAt).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </td>
+                    <td className="fw-bold fs-6 text-dark py-3">
+                      ₹{request.amount.toFixed(2)}
+                    </td>
+                    <td className="text-end pe-4 py-3">
+                      {request.status === "processed" ? (
+                        <Badge
+                          bg="success"
+                          className="px-3 py-2 border border-success bg-opacity-10 text-success"
+                        >
+                          <FiCheckCircle className="me-1" /> Processed
+                        </Badge>
+                      ) : (
+                        <Badge
+                          bg="warning"
+                          text="dark"
+                          className="px-3 py-2 border border-warning bg-opacity-10 text-dark"
+                        >
+                          <FiClock className="me-1" /> Pending
+                        </Badge>
+                      )}
                     </td>
                   </tr>
                 ))
