@@ -115,13 +115,13 @@ const Register = () => {
 
                     <p className="text-center text-muted small">
                       By signing up, you agree to our{" "}
-                      <a href="#" className="text-muted">
+                      <Link to="/terms" className="text-muted">
                         Terms
-                      </a>{" "}
+                      </Link>{" "}
                       and{" "}
-                      <a href="#" className="text-muted">
+                      <Link to="/privacy" className="text-muted">
                         Privacy Policy
-                      </a>
+                      </Link>
                       .
                     </p>
                   </Form>

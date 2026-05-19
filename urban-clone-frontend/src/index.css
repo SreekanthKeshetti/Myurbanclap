@@ -1020,3 +1020,26 @@ html {
 .custom-switch-premium .form-check-input:checked:focus {
   box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.3);
 }
+
+/* ==========================================
+   SPRINT 9 V3: GLOBAL FIXES
+========================================== */
+
+/* Task 8 & 9: Remove arrows/spinners from all number inputs globally */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield; /* Firefox */
+}
+
+/* Task 4: Fix Provider Earnings Button Hover Contrast */
+.provider-earnings-btn:hover {
+  background-color: var(--primary-color) !important;
+  color: white !important;
+}
+.provider-earnings-btn:hover svg {
+  color: #34d399 !important; /* Keep the money icon bright green on dark hover */
+}

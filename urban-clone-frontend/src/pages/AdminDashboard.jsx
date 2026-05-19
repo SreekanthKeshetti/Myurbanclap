@@ -86,6 +86,20 @@ const AdminDashboard = () => {
   });
   // --- 🌟 APP CONFIG STATE ---
   const [appConfig, setAppConfig] = useState({ isOperationsPaused: false });
+  // --- 🌟 SERVICE CRM STATE (Phase 4) ---
+  const [catalogTree, setCatalogTree] = useState([]);
+  const [serviceUploading, setServiceUploading] = useState(false);
+  const [serviceForm, setServiceForm] = useState({
+    name: "",
+    category: "",
+    subCategory: "",
+    price: "",
+    description: "",
+    features: "",
+    excludes: "",
+    bookingType: "one-time",
+    image: "",
+  });
 
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -124,14 +138,16 @@ const AdminDashboard = () => {
     try {
       if (!silent) setLoading(true);
       const config = { headers: { Authorization: `Bearer ${user.token}` } };
-      const [bookRes, userRes, analyticsRes] = await Promise.all([
+      const [bookRes, userRes, analyticsRes, treeRes] = await Promise.all([
         axios.get("/api/bookings/admin/all", config),
         axios.get("/api/auth/admin/users", config),
         axios.get("/api/bookings/admin/analytics", config),
+        axios.get("/api/categories/tree"),
       ]);
       setBookings(bookRes.data);
       setUsersList(userRes.data);
       setAnalytics(analyticsRes.data);
+      setCatalogTree(treeRes.data);
       if (!silent) setLoading(false);
     } catch (error) {
       setLoading(false);
@@ -214,6 +230,62 @@ const AdminDashboard = () => {
       fetchPromos();
     } catch (error) {
       toast.error("Failed to delete promo");
+    }
+  };
+  // --- 🌟 SERVICE CRM FUNCTIONS ---
+  const handleServiceImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("image", file);
+    setServiceUploading(true);
+    try {
+      const config = {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+      const { data } = await axios.post("/api/upload", formData, config);
+      setServiceForm({ ...serviceForm, image: data.imageUrl });
+      toast.success("Image uploaded to Cloudinary!");
+    } catch (error) {
+      toast.error("Image upload failed");
+    }
+    setServiceUploading(false);
+  };
+
+  const handleCreateService = async (e) => {
+    e.preventDefault();
+    if (!serviceForm.image) return toast.error("Please upload an image first!");
+
+    try {
+      const config = { headers: { Authorization: `Bearer ${user.token}` } };
+
+      const payload = {
+        ...serviceForm,
+        price: Number(serviceForm.price),
+        features: serviceForm.features.split(",").map((f) => f.trim()),
+        excludes: serviceForm.excludes.split(",").map((e) => e.trim()),
+        searchTags: serviceForm.name.toLowerCase().split(" "),
+      };
+
+      await axios.post("/api/services", payload, config);
+      toast.success("Service Created Successfully!");
+
+      setServiceForm({
+        name: "",
+        category: "",
+        subCategory: "",
+        price: "",
+        description: "",
+        features: "",
+        excludes: "",
+        bookingType: "one-time",
+        image: "",
+      });
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to create service");
     }
   };
   // APP CONFIG FETCH
@@ -901,7 +973,8 @@ const AdminDashboard = () => {
                         <td className="ps-4 fw-bold text-dark">{prov.name}</td>
                         <td>
                           <Badge bg="light" text="dark" className="border">
-                            {prov.providerDetails?.category || "Unassigned"}
+                            {prov.providerDetails?.category?.name ||
+                              "Unassigned"}
                           </Badge>
                         </td>
                         <td className="text-muted small">{prov.phone}</td>
@@ -1231,6 +1304,238 @@ const AdminDashboard = () => {
                   )}
                 </tbody>
               </Table>
+            </Card>
+          </Tab>
+          {/* 🌟 TAB 8: SERVICE CRM (Phase 4) 🌟 */}
+          <Tab eventKey="service-crm" title="Service CRM 🛠️">
+            <Card className="border-0 shadow-sm rounded-4 mt-3 bg-white p-4">
+              <div className="mb-4 border-bottom pb-3">
+                <h5 className="fw-bold mb-1">Service Catalog Manager</h5>
+                <p className="text-muted small mb-0">
+                  Add new services dynamically without requiring a database
+                  seeder.
+                </p>
+              </div>
+
+              <Form onSubmit={handleCreateService}>
+                <Row className="g-3 mb-3">
+                  <Col md={6}>
+                    <Form.Group>
+                      <Form.Label className="small fw-bold text-muted">
+                        SERVICE NAME
+                      </Form.Label>
+                      <Form.Control
+                        type="text"
+                        required
+                        value={serviceForm.name}
+                        onChange={(e) =>
+                          setServiceForm({
+                            ...serviceForm,
+                            name: e.target.value,
+                          })
+                        }
+                        placeholder="e.g. Premium Sofa Cleaning"
+                        className="bg-light"
+                      />
+                    </Form.Group>
+                  </Col>
+                  <Col md={3}>
+                    <Form.Group>
+                      <Form.Label className="small fw-bold text-muted">
+                        PRICE (₹)
+                      </Form.Label>
+                      <Form.Control
+                        type="number"
+                        required
+                        value={serviceForm.price}
+                        onChange={(e) =>
+                          setServiceForm({
+                            ...serviceForm,
+                            price: e.target.value,
+                          })
+                        }
+                        placeholder="999"
+                        className="bg-light"
+                      />
+                    </Form.Group>
+                  </Col>
+                  <Col md={3}>
+                    <Form.Group>
+                      <Form.Label className="small fw-bold text-muted">
+                        BOOKING TYPE
+                      </Form.Label>
+                      <Form.Select
+                        value={serviceForm.bookingType}
+                        onChange={(e) =>
+                          setServiceForm({
+                            ...serviceForm,
+                            bookingType: e.target.value,
+                          })
+                        }
+                        className="bg-light fw-bold"
+                      >
+                        <option value="one-time">One-Time Service</option>
+                        <option value="subscription">
+                          Monthly Subscription
+                        </option>
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                <Row className="g-3 mb-3">
+                  <Col md={6}>
+                    <Form.Group>
+                      <Form.Label className="small fw-bold text-muted">
+                        PARENT CATEGORY
+                      </Form.Label>
+                      <Form.Select
+                        required
+                        value={serviceForm.category}
+                        onChange={(e) =>
+                          setServiceForm({
+                            ...serviceForm,
+                            category: e.target.value,
+                            subCategory: "",
+                          })
+                        }
+                        className="bg-light"
+                      >
+                        <option value="">Select Category...</option>
+                        {catalogTree.map((cat) => (
+                          <option key={cat._id} value={cat._id}>
+                            {cat.name}
+                          </option>
+                        ))}
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Group>
+                      <Form.Label className="small fw-bold text-muted">
+                        SUB-CATEGORY
+                      </Form.Label>
+                      <Form.Select
+                        required
+                        value={serviceForm.subCategory}
+                        onChange={(e) =>
+                          setServiceForm({
+                            ...serviceForm,
+                            subCategory: e.target.value,
+                          })
+                        }
+                        disabled={!serviceForm.category}
+                        className="bg-light"
+                      >
+                        <option value="">Select Sub-Category...</option>
+                        {catalogTree
+                          .find((c) => c._id === serviceForm.category)
+                          ?.subCategories?.map((sub) => (
+                            <option key={sub._id} value={sub._id}>
+                              {sub.name}
+                            </option>
+                          ))}
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                <Form.Group className="mb-3">
+                  <Form.Label className="small fw-bold text-muted">
+                    DESCRIPTION
+                  </Form.Label>
+                  <Form.Control
+                    as="textarea"
+                    rows={2}
+                    required
+                    value={serviceForm.description}
+                    onChange={(e) =>
+                      setServiceForm({
+                        ...serviceForm,
+                        description: e.target.value,
+                      })
+                    }
+                    className="bg-light"
+                    placeholder="Detailed explanation of the service..."
+                  />
+                </Form.Group>
+
+                <Row className="g-3 mb-3">
+                  <Col md={6}>
+                    <Form.Group>
+                      <Form.Label className="small fw-bold text-muted">
+                        FEATURES (Comma separated)
+                      </Form.Label>
+                      <Form.Control
+                        type="text"
+                        required
+                        value={serviceForm.features}
+                        onChange={(e) =>
+                          setServiceForm({
+                            ...serviceForm,
+                            features: e.target.value,
+                          })
+                        }
+                        placeholder="Deep clean, Chemical wash..."
+                        className="bg-light"
+                      />
+                    </Form.Group>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Group>
+                      <Form.Label className="small fw-bold text-muted">
+                        EXCLUDES (Comma separated)
+                      </Form.Label>
+                      <Form.Control
+                        type="text"
+                        required
+                        value={serviceForm.excludes}
+                        onChange={(e) =>
+                          setServiceForm({
+                            ...serviceForm,
+                            excludes: e.target.value,
+                          })
+                        }
+                        placeholder="Spare parts, Extra wiring..."
+                        className="bg-light"
+                      />
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                <Form.Group className="mb-4 p-3 border rounded-3 bg-light">
+                  <Form.Label className="small fw-bold text-muted d-block">
+                    SERVICE COVER IMAGE
+                  </Form.Label>
+                  <Form.Control
+                    type="file"
+                    accept="image/*"
+                    onChange={handleServiceImageUpload}
+                    disabled={serviceUploading}
+                    className="mb-2"
+                  />
+                  {serviceUploading && (
+                    <div className="text-primary small fw-bold mt-1">
+                      <Spinner size="sm" className="me-2" /> Uploading to
+                      Cloudinary...
+                    </div>
+                  )}
+                  {serviceForm.image && (
+                    <div className="text-success small fw-bold mt-1">
+                      ✅ Image securely uploaded and linked!
+                    </div>
+                  )}
+                </Form.Group>
+
+                <Button
+                  type="submit"
+                  variant="dark"
+                  className="w-100 py-3 rounded-pill fw-bold shadow-lg btn-primary-custom"
+                  disabled={serviceUploading}
+                >
+                  Create Live Service
+                </Button>
+              </Form>
             </Card>
           </Tab>
         </Tabs>

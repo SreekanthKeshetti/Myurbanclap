@@ -39,7 +39,9 @@ const createBooking = async (req, res) => {
       quantity,
     } = req.body;
 
-    const paymentStatus = paymentMethod === "cash" ? "pending" : "paid";
+    // const paymentStatus = paymentMethod === "cash" ? "pending" : "paid";
+    // 🌟 SPRINT 9 V3 FIX: All orders start as 'pending' until Razorpay verifies them
+    const paymentStatus = "pending";
 
     // 🔒 SECURITY FIX: Fetch price directly from DB
     const Service = require("../models/Service");
@@ -108,7 +110,9 @@ const createBulkBooking = async (req, res) => {
       return res.status(400).json({ message: "No items in cart" });
     }
 
-    const paymentStatus = paymentMethod === "cash" ? "pending" : "paid";
+    // const paymentStatus = paymentMethod === "cash" ? "pending" : "paid";
+    // 🌟 SPRINT 9 V3 FIX: All orders start as 'pending' until Razorpay verifies them
+    const paymentStatus = "pending";
     const Service = require("../models/Service");
 
     const createdBookings = await Promise.all(
@@ -272,6 +276,10 @@ const getAvailableJobs = async (req, res) => {
 
     // 🌍 STEP 3: Setup Geo-Fencing Query
     let query = { status: "pending" };
+    // --- 🌟 SPRINT 9 V3: Ghost Booking Filter ---
+    // Prevent unpaid online orders (abandoned carts) from showing to Providers
+    query.$or = [{ paymentMethod: "cash" }, { paymentStatus: "paid" }];
+    // --------------------------------------------
 
     if (
       currentProvider.geoLocation &&

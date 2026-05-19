@@ -616,7 +616,7 @@ const ProviderDashboard = () => {
           <div className="d-flex flex-wrap gap-2">
             <Button
               variant="outline-dark"
-              className="rounded-pill fw-bold bg-white shadow-sm border-0 d-flex align-items-center"
+              className="rounded-pill fw-bold bg-white shadow-sm border-0 d-flex align-items-center provider-earnings-btn"
               onClick={() => navigate("/provider/wallet")}
             >
               <FiDollarSign className="me-1 text-success" /> Earnings

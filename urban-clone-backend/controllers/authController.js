@@ -308,9 +308,25 @@ const getPendingProviders = async (req, res) => {
 // @desc    Get All Users (Admin)
 // @route   GET /api/auth/admin/users
 // @access  Private/Admin
+// const getAllUsers = async (req, res) => {
+//   try {
+//     const users = await User.find({}).sort({ createdAt: -1 });
+//     res.json(users);
+//   } catch (error) {
+//     res.status(500).json({ message: error.message });
+//   }
+// };
+
+// @desc    Get All Users (Admin)
+// @route   GET /api/auth/admin/users
+// @access  Private/Admin
 const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find({}).sort({ createdAt: -1 });
+    // --- 🌟 SPRINT 9 V3: Populate Category Names ---
+    const users = await User.find({})
+      .populate("providerDetails.category", "name")
+      .populate("providerDetails.subCategory", "name")
+      .sort({ createdAt: -1 });
     res.json(users);
   } catch (error) {
     res.status(500).json({ message: error.message });

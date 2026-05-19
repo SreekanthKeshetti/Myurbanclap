@@ -753,6 +753,7 @@ const Navigation = () => {
         className={`modern-navbar py-3 ${scrolled ? "scrolled" : ""}`}
         expanded={expanded}
         onToggle={(isExpanded) => setExpanded(isExpanded)}
+        style={{ zIndex: 1050 }}
       >
         <Container>
           <Navbar.Brand

@@ -151,6 +151,11 @@ const Bookings = () => {
       toast.error(error.response?.data?.message || "Error submitting review");
     }
   };
+  // --- 🌟 SPRINT 9 V3: Ghost Booking Helper ---
+  const isGhostBooking = (b) =>
+    b.status === "pending" &&
+    b.paymentMethod !== "cash" &&
+    b.paymentStatus === "pending";
 
   const getProgressValue = (status) => {
     switch (status) {
@@ -173,15 +178,16 @@ const Bookings = () => {
     }
   };
 
-  const getStatusColor = (status) => {
-    if (status === "cancelled") return "danger";
-    if (status === "completed") return "success";
-    if (status === "pending") return "warning";
+  const getStatusColor = (b) => {
+    if (isGhostBooking(b)) return "danger";
+    if (b.status === "cancelled") return "danger";
+    if (b.status === "completed") return "success";
+    if (b.status === "pending") return "warning";
     return "primary";
   };
 
-  const getStatusText = (status) => {
-    switch (status) {
+  const getStatusText = (b) => {
+    switch (b.status) {
       case "pending":
         return "Finding Professional";
       case "accepted":
@@ -197,12 +203,18 @@ const Bookings = () => {
       case "cancelled":
         return "Cancelled";
       default:
-        return status;
+        return b.status;
     }
   };
 
+  // const filteredBookings = bookings.filter((b) => {
+  //   const isPast = b.status === "completed" || b.status === "cancelled";
+  //   return filter === "active" ? !isPast : isPast;
+  // });
   const filteredBookings = bookings.filter((b) => {
-    const isPast = b.status === "completed" || b.status === "cancelled";
+    // 🌟 Moves Payment Failed to the Past tab automatically!
+    const isPast =
+      b.status === "completed" || b.status === "cancelled" || isGhostBooking(b);
     return filter === "active" ? !isPast : isPast;
   });
 
@@ -322,13 +334,13 @@ const Bookings = () => {
                               <FiClock className="text-warning" />
                             )}
                             <span
-                              className={`fw-bold text-${getStatusColor(booking.status)} text-uppercase`}
+                              className={`fw-bold text-${getStatusColor(booking)} text-uppercase`}
                               style={{
                                 fontSize: "11px",
                                 letterSpacing: "1px",
                               }}
                             >
-                              {getStatusText(booking.status)}
+                              {getStatusText(booking)}
                             </span>
                           </div>
                           <span
@@ -431,7 +443,10 @@ const Bookings = () => {
                         </div>
 
                         {/* PROGRESS BAR (Only if active) */}
-                        {filter === "active" && (
+                        {/* {filter === "active" && (
+                          <div className="px-4 pb-3 booking-progress-wrapper"> */}
+                        {/* PROGRESS BAR (Only if active & paid/cash) */}
+                        {filter === "active" && !isGhostBooking(booking) && (
                           <div className="px-4 pb-3 booking-progress-wrapper">
                             <ProgressBar
                               now={getProgressValue(booking.status)}
@@ -506,7 +521,7 @@ const Bookings = () => {
                           )}
 
                           {/* Pre-job Actions */}
-                          {["pending", "accepted"].includes(booking.status) && (
+                          {/* {["pending", "accepted"].includes(booking.status) && (
                             <div className="d-flex gap-2 ms-auto">
                               <Button
                                 variant="link"
@@ -515,7 +530,21 @@ const Bookings = () => {
                                 onClick={() => handleOpenReschedule(booking)}
                               >
                                 Reschedule
-                              </Button>
+                              </Button> */}
+                          {/* Pre-job Actions */}
+                          {["pending", "accepted"].includes(booking.status) && (
+                            <div className="d-flex gap-2 ms-auto">
+                              {!isGhostBooking(booking) && (
+                                <Button
+                                  variant="link"
+                                  size="sm"
+                                  className="text-dark fw-bold text-decoration-none"
+                                  onClick={() => handleOpenReschedule(booking)}
+                                >
+                                  Reschedule
+                                </Button>
+                              )}
+                              {/* Cancel Button */}
                               <Button
                                 variant="link"
                                 size="sm"

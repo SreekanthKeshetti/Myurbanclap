@@ -14,6 +14,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "react-hot-toast";
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from "framer-motion";
+import * as FiIcons from "react-icons/fi"; // <--- 🌟 ADD THIS IMPORT 🌟
 
 import ServiceCard from "../components/UI/ServiceCard";
 import BookingModal from "../components/UI/BookingModal";
@@ -272,7 +273,7 @@ const ServicesPage = () => {
                       className="mb-5 pb-5"
                     >
                       <div className="d-flex align-items-center mb-4 pb-2 border-bottom">
-                        <div
+                        {/* <div
                           className="bg-white p-2 rounded-circle shadow-sm me-3 text-primary d-flex align-items-center justify-content-center"
                           style={{ width: "45px", height: "45px" }}
                         >
@@ -281,6 +282,17 @@ const ServicesPage = () => {
                             alt="icon"
                             style={{ width: "24px", opacity: 0.8 }}
                           />
+                        </div> */}
+                        <div
+                          className="bg-white p-2 rounded-circle shadow-sm me-3 text-primary d-flex align-items-center justify-content-center"
+                          style={{ width: "45px", height: "45px" }}
+                        >
+                          {(() => {
+                            // 🌟 Dynamically map the string from DB to a React Icon
+                            const IconComponent =
+                              FiIcons[activeCategory.icon] || FiIcons.FiGrid;
+                            return <IconComponent size={24} />;
+                          })()}
                         </div>
                         <h2 className="fw-bold mb-0 text-dark">
                           {activeCategory.name}

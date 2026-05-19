@@ -51,19 +51,54 @@ const getServiceById = async (req, res) => {
 // @desc    Create a new service
 // @route   POST /api/services
 // @access  Private (Only logged in users)
+// const createService = async (req, res) => {
+//   try {
+//     const { name, category, description, price, features, excludes, image } =
+//       req.body;
+
+//     const service = await Service.create({
+//       name,
+//       category,
+//       description,
+//       price,
+//       features,
+//       excludes,
+//       image,
+//     });
+
+//     res.status(201).json(service);
+//   } catch (error) {
+//     res.status(400).json({ message: error.message });
+//   }
+// };
 const createService = async (req, res) => {
   try {
-    const { name, category, description, price, features, excludes, image } =
-      req.body;
-
-    const service = await Service.create({
+    const {
       name,
       category,
+      subCategory,
       description,
       price,
       features,
       excludes,
       image,
+      video,
+      bookingType,
+      searchTags,
+    } = req.body;
+
+    const service = await Service.create({
+      name,
+      category,
+      subCategory,
+      description,
+      price,
+      features,
+      excludes,
+      image,
+      video,
+      bookingType,
+      searchTags,
     });
 
     res.status(201).json(service);
