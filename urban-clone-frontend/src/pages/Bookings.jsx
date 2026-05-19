@@ -290,7 +290,7 @@ const Bookings = () => {
                 }
                 )
               </div>
-              <div
+              {/* <div
                 className={`booking-filter-pill ${filter === "past" ? "active" : ""}`}
                 onClick={() => setFilter("past")}
               >
@@ -301,7 +301,7 @@ const Bookings = () => {
                   ).length
                 }
                 )
-              </div>
+              </div> */}
             </div>
           </div>
 
