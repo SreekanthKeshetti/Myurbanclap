@@ -248,7 +248,7 @@ const Bookings = () => {
               </p>
             </div>
             <div className="d-flex gap-2 p-1 bg-white rounded-pill shadow-sm border">
-              <div
+              {/* <div
                 className={`booking-filter-pill ${filter === "active" ? "active" : ""}`}
                 onClick={() => setFilter("active")}
               >
@@ -256,6 +256,36 @@ const Bookings = () => {
                 {
                   bookings.filter(
                     (b) => b.status !== "completed" && b.status !== "cancelled",
+                  ).length
+                }
+                )
+              </div> */}
+              <div
+                className={`booking-filter-pill ${filter === "active" ? "active" : ""}`}
+                onClick={() => setFilter("active")}
+              >
+                Active (
+                {
+                  bookings.filter(
+                    (b) =>
+                      b.status !== "completed" &&
+                      b.status !== "cancelled" &&
+                      !isGhostBooking(b),
+                  ).length
+                }
+                )
+              </div>
+              <div
+                className={`booking-filter-pill ${filter === "past" ? "active" : ""}`}
+                onClick={() => setFilter("past")}
+              >
+                Past (
+                {
+                  bookings.filter(
+                    (b) =>
+                      b.status === "completed" ||
+                      b.status === "cancelled" ||
+                      isGhostBooking(b),
                   ).length
                 }
                 )
@@ -336,8 +366,8 @@ const Bookings = () => {
                             <span
                               className={`fw-bold text-${getStatusColor(booking)} text-uppercase`}
                               style={{
-                                fontSize: "11px",
-                                letterSpacing: "1px",
+                                fontSize: "13px",
+                                letterSpacing: "0.5px",
                               }}
                             >
                               {getStatusText(booking)}
@@ -532,29 +562,32 @@ const Bookings = () => {
                                 Reschedule
                               </Button> */}
                           {/* Pre-job Actions */}
-                          {["pending", "accepted"].includes(booking.status) && (
-                            <div className="d-flex gap-2 ms-auto">
-                              {!isGhostBooking(booking) && (
+                          {["pending", "accepted"].includes(booking.status) &&
+                            !isGhostBooking(booking) && (
+                              <div className="d-flex gap-2 ms-auto">
+                                {!isGhostBooking(booking) && (
+                                  <Button
+                                    variant="link"
+                                    size="sm"
+                                    className="text-dark fw-bold text-decoration-none"
+                                    onClick={() =>
+                                      handleOpenReschedule(booking)
+                                    }
+                                  >
+                                    Reschedule
+                                  </Button>
+                                )}
+                                {/* Cancel Button */}
                                 <Button
                                   variant="link"
                                   size="sm"
-                                  className="text-dark fw-bold text-decoration-none"
-                                  onClick={() => handleOpenReschedule(booking)}
+                                  className="text-danger fw-bold text-decoration-none"
+                                  onClick={() => handleOpenCancel(booking)}
                                 >
-                                  Reschedule
+                                  Cancel
                                 </Button>
-                              )}
-                              {/* Cancel Button */}
-                              <Button
-                                variant="link"
-                                size="sm"
-                                className="text-danger fw-bold text-decoration-none"
-                                onClick={() => handleOpenCancel(booking)}
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                          )}
+                              </div>
+                            )}
 
                           {/* Post-Job Actions */}
                           {booking.status === "completed" &&
