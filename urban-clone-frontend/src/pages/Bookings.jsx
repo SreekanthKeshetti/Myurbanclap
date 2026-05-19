@@ -187,6 +187,7 @@ const Bookings = () => {
   };
 
   const getStatusText = (b) => {
+    if (isGhostBooking(b)) return "Payment Failed"; // Returns this text if payment failed
     switch (b.status) {
       case "pending":
         return "Finding Professional";
