@@ -608,7 +608,9 @@ const createBooking = async (req, res) => {
       quantity,
     } = req.body;
 
-    const paymentStatus = paymentMethod === "cash" ? "pending" : "paid";
+    // const paymentStatus = paymentMethod === "cash" ? "pending" : "paid";
+    // 🌟 SPRINT 9 V3 FIX: All orders start as 'pending' until Razorpay verifies them
+    const paymentStatus = "pending";
 
     // 🔒 SECURITY FIX: Fetch price directly from DB
     const Service = require("../models/Service");
@@ -677,7 +679,9 @@ const createBulkBooking = async (req, res) => {
       return res.status(400).json({ message: "No items in cart" });
     }
 
-    const paymentStatus = paymentMethod === "cash" ? "pending" : "paid";
+    // const paymentStatus = paymentMethod === "cash" ? "pending" : "paid";
+    // 🌟 SPRINT 9 V3 FIX: All orders start as 'pending' until Razorpay verifies them
+    const paymentStatus = "pending";
     const Service = require("../models/Service");
 
     const createdBookings = await Promise.all(
@@ -6890,7 +6894,7 @@ define(['./workbox-5a5d9309'], (function (workbox) { 'use strict';
    */
   workbox.precacheAndRoute([{
     "url": "index.html",
-    "revision": "0.c6dlp4kscj"
+    "revision": "0.lk7vnis51c"
   }], {});
   workbox.cleanupOutdatedCaches();
   workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
@@ -21670,6 +21674,7 @@ const Bookings = () => {
   };
 
   const getStatusText = (b) => {
+    if (isGhostBooking(b)) return "Payment Failed"; // Returns this text if payment failed
     switch (b.status) {
       case "pending":
         return "Finding Professional";
@@ -21690,8 +21695,14 @@ const Bookings = () => {
     }
   };
 
+  // const filteredBookings = bookings.filter((b) => {
+  //   const isPast = b.status === "completed" || b.status === "cancelled";
+  //   return filter === "active" ? !isPast : isPast;
+  // });
   const filteredBookings = bookings.filter((b) => {
-    const isPast = b.status === "completed" || b.status === "cancelled";
+    // 🌟 Moves Payment Failed to the Past tab automatically!
+    const isPast =
+      b.status === "completed" || b.status === "cancelled" || isGhostBooking(b);
     return filter === "active" ? !isPast : isPast;
   });
 
@@ -21725,7 +21736,7 @@ const Bookings = () => {
               </p>
             </div>
             <div className="d-flex gap-2 p-1 bg-white rounded-pill shadow-sm border">
-              <div
+              {/* <div
                 className={`booking-filter-pill ${filter === "active" ? "active" : ""}`}
                 onClick={() => setFilter("active")}
               >
@@ -21733,6 +21744,21 @@ const Bookings = () => {
                 {
                   bookings.filter(
                     (b) => b.status !== "completed" && b.status !== "cancelled",
+                  ).length
+                }
+                )
+              </div> */}
+              <div
+                className={`booking-filter-pill ${filter === "active" ? "active" : ""}`}
+                onClick={() => setFilter("active")}
+              >
+                Active (
+                {
+                  bookings.filter(
+                    (b) =>
+                      b.status !== "completed" &&
+                      b.status !== "cancelled" &&
+                      !isGhostBooking(b),
                   ).length
                 }
                 )
@@ -21744,11 +21770,26 @@ const Bookings = () => {
                 Past (
                 {
                   bookings.filter(
-                    (b) => b.status === "completed" || b.status === "cancelled",
+                    (b) =>
+                      b.status === "completed" ||
+                      b.status === "cancelled" ||
+                      isGhostBooking(b),
                   ).length
                 }
                 )
               </div>
+              {/* <div
+                className={`booking-filter-pill ${filter === "past" ? "active" : ""}`}
+                onClick={() => setFilter("past")}
+              >
+                Past (
+                {
+                  bookings.filter(
+                    (b) => b.status === "completed" || b.status === "cancelled",
+                  ).length
+                }
+                )
+              </div> */}
             </div>
           </div>
 
@@ -21813,8 +21854,8 @@ const Bookings = () => {
                             <span
                               className={`fw-bold text-${getStatusColor(booking)} text-uppercase`}
                               style={{
-                                fontSize: "11px",
-                                letterSpacing: "1px",
+                                fontSize: "13px",
+                                letterSpacing: "0.5px",
                               }}
                             >
                               {getStatusText(booking)}
@@ -22009,29 +22050,32 @@ const Bookings = () => {
                                 Reschedule
                               </Button> */}
                           {/* Pre-job Actions */}
-                          {["pending", "accepted"].includes(booking.status) && (
-                            <div className="d-flex gap-2 ms-auto">
-                              {!isGhostBooking(booking) && (
+                          {["pending", "accepted"].includes(booking.status) &&
+                            !isGhostBooking(booking) && (
+                              <div className="d-flex gap-2 ms-auto">
+                                {!isGhostBooking(booking) && (
+                                  <Button
+                                    variant="link"
+                                    size="sm"
+                                    className="text-dark fw-bold text-decoration-none"
+                                    onClick={() =>
+                                      handleOpenReschedule(booking)
+                                    }
+                                  >
+                                    Reschedule
+                                  </Button>
+                                )}
+                                {/* Cancel Button */}
                                 <Button
                                   variant="link"
                                   size="sm"
-                                  className="text-dark fw-bold text-decoration-none"
-                                  onClick={() => handleOpenReschedule(booking)}
+                                  className="text-danger fw-bold text-decoration-none"
+                                  onClick={() => handleOpenCancel(booking)}
                                 >
-                                  Reschedule
+                                  Cancel
                                 </Button>
-                              )}
-                              {/* Cancel Button */}
-                              <Button
-                                variant="link"
-                                size="sm"
-                                className="text-danger fw-bold text-decoration-none"
-                                onClick={() => handleOpenCancel(booking)}
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                          )}
+                              </div>
+                            )}
 
                           {/* Post-Job Actions */}
                           {booking.status === "completed" &&
